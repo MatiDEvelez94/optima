@@ -4,6 +4,7 @@ import '../theme/app_text_styles.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/optima_button.dart';
 import '../widgets/optima_text_field.dart';
+import 'forgot_password_screen.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 
@@ -47,7 +48,17 @@ class LoginScreen extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 8),
-              OptimaLink(text: 'Recuperar Contraseña', onPressed: () {}),
+              OptimaLink(
+                text: 'Recuperar Contraseña',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ForgotPasswordScreen(),
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 50),
               const Text(
                 'O',

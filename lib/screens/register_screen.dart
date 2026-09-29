@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import '../models/user_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/gradient_background.dart';
@@ -18,6 +19,12 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _picker = ImagePicker();
+  final _nombreCtrl = TextEditingController();
+  final _apellidoCtrl = TextEditingController();
+  final _correoCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _telefonoCtrl = TextEditingController();
+  final _dniCtrl = TextEditingController();
   Uint8List? _photoBytes;
 
   Future<void> _pickPhoto() async {
@@ -30,6 +37,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final bytes = await picked.readAsBytes();
     if (!mounted) return;
     setState(() => _photoBytes = bytes);
+  }
+
+  void _continue() {
+    final tel = _telefonoCtrl.text.trim();
+    UserSession.nombre = _nombreCtrl.text.trim();
+    UserSession.apellido = _apellidoCtrl.text.trim();
+    UserSession.correo = _correoCtrl.text.trim();
+    UserSession.telefono = tel.isEmpty ? '' : '+54 9 $tel';
+    UserSession.dni = _dniCtrl.text.trim();
+    UserSession.foto = _photoBytes;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RoleScreen()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _apellidoCtrl.dispose();
+    _correoCtrl.dispose();
+    _passCtrl.dispose();
+    _telefonoCtrl.dispose();
+    _dniCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -96,19 +129,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 24),
 
-              const OptimaTextField(label: 'Nombre', hint: '...'),
+              OptimaTextField(
+                label: 'Nombre',
+                hint: '...',
+                controller: _nombreCtrl,
+              ),
               const SizedBox(height: 20),
-              const OptimaTextField(label: 'Apellido', hint: '...'),
+              OptimaTextField(
+                label: 'Apellido',
+                hint: '...',
+                controller: _apellidoCtrl,
+              ),
               const SizedBox(height: 20),
-              const OptimaTextField(
+              OptimaTextField(
                 label: 'Correo electronico',
                 hint: 'maildeejemplo@gmail.com',
+                controller: _correoCtrl,
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 20),
-              const OptimaTextField(
+              OptimaTextField(
                 label: 'Contraseña',
                 hint: '...',
+                controller: _passCtrl,
                 obscure: true,
               ),
               const SizedBox(height: 20),
@@ -124,9 +167,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: OptimaTextField(hint: '+54 9', readOnly: true),
                   ),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: OptimaTextField(
                       hint: '...',
+                      controller: _telefonoCtrl,
                       keyboardType: TextInputType.phone,
                     ),
                   ),
@@ -137,6 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Text('DNI', style: AppText.label),
               const SizedBox(height: 6),
               TextField(
+                controller: _dniCtrl,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: AppText.input.copyWith(color: Colors.black87),
@@ -145,15 +190,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               const SizedBox(height: 50),
               Center(
-                child: OptimaLink(
-                  text: 'Continuar',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const RoleScreen()),
-                    );
-                  },
-                ),
+                child: OptimaLink(text: 'Continuar', onPressed: _continue),
               ),
             ],
           ),
