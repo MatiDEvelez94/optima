@@ -21,7 +21,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   void _send() {
     final correo = _correoCtrl.text.trim();
     if (correo.isEmpty || !correo.contains('@')) {
-      setState(() => _error = 'Ingresa un correo valido');
+      setState(() => _error = 'Ingresa un correo válido');
       return;
     }
     setState(() {
@@ -53,7 +53,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 16),
           Text(
             'Ingresa tu correo y te enviaremos los pasos para crear una nueva contraseña.',
-            style: AppText.subtitle.copyWith(fontSize: 15, letterSpacing: 1),
+            style: AppText.subtitle.copyWith(fontSize: 15, letterSpacing: 0.3),
           ),
           const SizedBox(height: 24),
           OptimaTextField(
@@ -97,7 +97,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         const Spacer(flex: 3),
         OptimaLink(
-          text: 'Volver al inicio de sesion',
+          text: 'Volver al inicio de sesión',
           onPressed: () => Navigator.pop(context),
         ),
         const Spacer(flex: 3),

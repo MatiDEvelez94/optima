@@ -36,7 +36,7 @@ class OptimaButton extends StatelessWidget {
           ),
         ),
         child: Text(text,
-            style: GoogleFonts.courierPrime(fontSize: 14, color: textColor)),
+            style: GoogleFonts.lato(fontSize: 14, color: textColor)),
       ),
     );
   }

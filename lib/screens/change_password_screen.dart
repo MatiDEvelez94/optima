@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../models/user_session.dart';
+import '../models/validadores.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../widgets/cuadro_errores.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/optima_back_button.dart';
 import '../widgets/optima_button.dart';
@@ -14,39 +17,53 @@ class ChangePasswordScreen extends StatefulWidget {
 }
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
-  final _correoCtrl = TextEditingController();
-  final _newCtrl = TextEditingController();
-  final _repeatCtrl = TextEditingController();
-  String? _error;
+  final _actualCtrl = TextEditingController();
+  final _nuevaCtrl = TextEditingController();
+  final _repiteCtrl = TextEditingController();
+  List<String> _errores = [];
   bool _done = false;
 
+  // Revisa los datos y, si estan bien, cambia la contraseña de la cuenta
   void _confirm() {
-    final correo = _correoCtrl.text.trim();
-    final nueva = _newCtrl.text;
-    final repite = _repeatCtrl.text;
+    final actual = _actualCtrl.text;
+    final nueva = _nuevaCtrl.text;
+    final repite = _repiteCtrl.text;
+    final errores = <String>[];
 
-    String? error;
-    if (correo.isEmpty || nueva.isEmpty || repite.isEmpty) {
-      error = 'Completa todos los campos';
-    } else if (!correo.contains('@')) {
-      error = 'Ingresa un correo valido';
-    } else if (nueva.length < 6) {
-      error = 'La contraseña debe tener al menos 6 caracteres';
-    } else if (nueva != repite) {
-      error = 'Las contraseñas no coinciden';
+    if (actual != UserSession.password) {
+      errores.add('La contraseña actual no es correcta');
+    }
+    if (!Validadores.password(nueva)) {
+      errores.add('La nueva contraseña debe tener al menos 6 caracteres');
+    } else if (nueva == actual) {
+      errores.add('La nueva contraseña tiene que ser distinta de la actual');
+    }
+    if (nueva != repite) {
+      errores.add('Las contraseñas nuevas no coinciden');
     }
 
+    if (errores.isNotEmpty) {
+      setState(() => _errores = errores);
+      return;
+    }
+
+    final cuenta = UserSession.cuentaActual;
+    if (cuenta != null) {
+      cuenta.cambiarPassword(nueva);
+    } else {
+      UserSession.password = nueva;
+    }
     setState(() {
-      _error = error;
-      _done = error == null;
+      _errores = [];
+      _done = true;
     });
   }
 
   @override
   void dispose() {
-    _correoCtrl.dispose();
-    _newCtrl.dispose();
-    _repeatCtrl.dispose();
+    _actualCtrl.dispose();
+    _nuevaCtrl.dispose();
+    _repiteCtrl.dispose();
     super.dispose();
   }
 
@@ -61,33 +78,26 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           const Divider(color: Colors.black87, indent: 20, endIndent: 20),
           const SizedBox(height: 24),
           OptimaTextField(
-            label: 'Correo',
-            hint: 'maildeejemplo@gmail.com',
-            controller: _correoCtrl,
-            keyboardType: TextInputType.emailAddress,
+            label: 'Contraseña actual',
+            hint: '...',
+            controller: _actualCtrl,
+            obscure: true,
           ),
           const SizedBox(height: 20),
           OptimaTextField(
             label: 'Nueva contraseña',
-            hint: '...',
-            controller: _newCtrl,
+            hint: 'mínimo 6 caracteres',
+            controller: _nuevaCtrl,
             obscure: true,
           ),
           const SizedBox(height: 20),
           OptimaTextField(
-            label: 'Repite la contraseña',
+            label: 'Repite la nueva contraseña',
             hint: '...',
-            controller: _repeatCtrl,
+            controller: _repiteCtrl,
             obscure: true,
           ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text(
-                _error!,
-                style: AppText.input.copyWith(color: Colors.red.shade800),
-              ),
-            ),
+          CuadroErrores(errores: _errores),
           const SizedBox(height: 40),
           Center(child: OptimaLink(text: 'Confirmar', onPressed: _confirm)),
         ],

@@ -39,7 +39,7 @@ class RoleCard extends StatelessWidget {
                     Text(
                       text,
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.cormorantGaramond(
+                      style: GoogleFonts.lato(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: AppColors.navy,
@@ -57,7 +57,7 @@ class RoleCard extends StatelessWidget {
                       ),
                       child: Text(
                         'Siguiente',
-                        style: GoogleFonts.courierPrime(
+                        style: GoogleFonts.lato(
                           fontSize: 13,
                           color: AppColors.hint,
                         ),

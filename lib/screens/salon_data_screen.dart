@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../models/cuenta.dart';
+import '../models/solicitud_salon.dart';
+import '../models/user_session.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import '../widgets/cuadro_errores.dart';
 import '../widgets/gradient_background.dart';
+import '../widgets/grilla_fotos.dart';
 import '../widgets/optima_back_button.dart';
 import '../widgets/optima_button.dart';
 import '../widgets/optima_text_field.dart';
@@ -17,117 +22,85 @@ class SalonDataScreen extends StatefulWidget {
 }
 
 class _SalonDataScreenState extends State<SalonDataScreen> {
-  // Cantidad máxima de fotos que se pueden subir (cambiá este número si querés)
-  static const int _maxPhotos = 10;
-
-  final _picker = ImagePicker();
+  final _nombreCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _capacidadCtrl = TextEditingController();
   final List<Uint8List> _photos = [];
+  List<String> _errores = [];
 
-  Future<void> _addPhotos() async {
-    final picked = await _picker.pickMultiImage(
-      maxWidth: 1200,
-      imageQuality: 85,
-    );
-    if (picked.isEmpty) return;
+  @override
+  void dispose() {
+    _nombreCtrl.dispose();
+    _addressCtrl.dispose();
+    _capacidadCtrl.dispose();
+    super.dispose();
+  }
 
-    final remaining = _maxPhotos - _photos.length;
-    final newBytes = <Uint8List>[];
-    for (final file in picked.take(remaining)) {
-      newBytes.add(await file.readAsBytes());
-    }
-    if (!mounted) return;
-    setState(() => _photos.addAll(newBytes));
-
-    if (picked.length > remaining) {
+  // Abre la direccion escrita en Google Maps para que el dueño la verifique
+  Future<void> _openMaps() async {
+    final address = _addressCtrl.text.trim();
+    if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Solo se pueden agregar hasta $_maxPhotos fotos')),
+        const SnackBar(content: Text('Escribe la dirección primero')),
       );
+      return;
     }
+    final url = Uri.https('www.google.com', '/maps/search/', {
+      'api': '1',
+      'query': address,
+    });
+    await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
-  void _removePhoto(int index) {
-    setState(() => _photos.removeAt(index));
-  }
-
-  BoxDecoration get _boxDecoration => BoxDecoration(
-        color: AppColors.field,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.navy),
-      );
-
-  Widget _buildPhotosArea() {
-    // Sin fotos: cuadrado grande "Agregar fotos"
+  // Guarda los datos, crea la cuenta y manda la solicitud para que el
+  // administrador la revise
+  void _enviarSolicitud() {
+    // Revisa los datos; si algo falla, muestra que hay que corregir
+    final errores = <String>[];
+    if (_nombreCtrl.text.trim().isEmpty) {
+      errores.add('Escribe el nombre del salón');
+    }
+    if (_addressCtrl.text.trim().length < 5) {
+      errores.add('Escribe la dirección completa (calle, número y ciudad)');
+    }
+    if ((int.tryParse(_capacidadCtrl.text.trim()) ?? 0) < 1) {
+      errores.add('La capacidad tiene que ser mayor a 0');
+    }
     if (_photos.isEmpty) {
-      return GestureDetector(
-        onTap: _addPhotos,
-        child: Container(
-          height: 170,
-          width: double.infinity,
-          decoration: _boxDecoration,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.add, size: 56, color: Colors.black87),
-              const SizedBox(height: 4),
-              Text(
-                'Agregar fotos del salon',
-                style: AppText.input.copyWith(
-                  color: Colors.black87,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      errores.add('Agrega al menos una foto del salón');
+    }
+    if (errores.isNotEmpty) {
+      setState(() => _errores = errores);
+      return;
     }
 
-    // Con fotos: grilla de miniaturas + cuadradito "+" para seguir agregando
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      children: [
-        for (var i = 0; i < _photos.length; i++)
-          Stack(
-            fit: StackFit.expand,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.memory(_photos[i], fit: BoxFit.cover),
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: GestureDetector(
-                  onTap: () => _removePhoto(i),
-                  child: Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      color: AppColors.navy,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      size: 14,
-                      color: AppColors.cream,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        if (_photos.length < _maxPhotos)
-          GestureDetector(
-            onTap: _addPhotos,
-            child: Container(
-              decoration: _boxDecoration,
-              child: const Icon(Icons.add, size: 36, color: Colors.black87),
-            ),
-          ),
-      ],
+    UserSession.salonNombre = _nombreCtrl.text.trim();
+    UserSession.salonDireccion = _addressCtrl.text.trim();
+    UserSession.salonCapacidad = _capacidadCtrl.text.trim();
+    UserSession.salonFotos = List.of(_photos);
+    UserSession.rol = 'salon';
+    UserSession.logueado = true;
+
+    final solicitud = SolicitudSalon(
+      nombreDueno: UserSession.nombre,
+      apellidoDueno: UserSession.apellido,
+      correo: UserSession.correo,
+      telefono: UserSession.telefono,
+      dni: UserSession.dni,
+      salonNombre: UserSession.salonNombre,
+      direccion: UserSession.salonDireccion,
+      capacidad: UserSession.salonCapacidad,
+      fotos: List.of(_photos),
+      fecha: DateTime.now(),
+    );
+    SolicitudSalon.todas.add(solicitud);
+    UserSession.solicitudSalon = solicitud;
+    SolicitudSalon.notificar();
+    Cuenta.crearDesdeSesion(solicitud: solicitud);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RequestSentScreen()),
     );
   }
 
@@ -141,35 +114,55 @@ class _SalonDataScreenState extends State<SalonDataScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const OptimaBackButton(),
-              Center(child: Text('Datos del Salon', style: AppText.title)),
+              Center(child: Text('Datos del Salón', style: AppText.title)),
               const Divider(color: Colors.black87, indent: 20, endIndent: 20),
               const SizedBox(height: 24),
-              const OptimaTextField(label: 'Nombre del Salon', hint: 'texto'),
+              OptimaTextField(
+                label: 'Nombre del Salón',
+                hint: 'texto',
+                controller: _nombreCtrl,
+              ),
               const SizedBox(height: 20),
-              const OptimaTextField(label: 'Direccion', hint: 'texto'),
+              OptimaTextField(
+                label: 'Dirección',
+                hint: 'calle, número, ciudad',
+                controller: _addressCtrl,
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OptimaButton(
+                  text: 'Ver en Google Maps',
+                  filled: false,
+                  onPressed: _openMaps,
+                ),
+              ),
               const SizedBox(height: 20),
-              Text('Capacidad', style: AppText.label),
+              Text('Capacidad', style: AppText.campo),
               const SizedBox(height: 6),
               TextField(
+                controller: _capacidadCtrl,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: AppText.input.copyWith(color: Colors.black87),
                 decoration: optimaDecoration('cantidad de personas'),
               ),
               const SizedBox(height: 24),
-              _buildPhotosArea(),
+              GrillaFotos(
+                fotos: _photos,
+                vacioGrande: true,
+                onChanged: (nuevas) => setState(() {
+                  _photos
+                    ..clear()
+                    ..addAll(nuevas);
+                }),
+              ),
+              CuadroErrores(errores: _errores),
               const SizedBox(height: 40),
               Center(
                 child: OptimaLink(
                   text: 'Continuar',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const RequestSentScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: _enviarSolicitud,
                 ),
               ),
             ],

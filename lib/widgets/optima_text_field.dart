@@ -24,7 +24,7 @@ Widget _withLabel(String? label, Widget field) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: AppText.label),
+      Text(label, style: AppText.campo),
       const SizedBox(height: 6),
       field,
     ],
@@ -75,11 +75,13 @@ class OptimaDropdown<T> extends StatelessWidget {
     required this.items,
     this.label,
     this.onChanged,
+    this.initialValue,
   });
 
   final String hint;
   final String? label;
   final List<T> items;
+  final T? initialValue; // opcion elegida al abrir (para editar)
   final ValueChanged<T?>? onChanged;
 
   @override
@@ -87,6 +89,7 @@ class OptimaDropdown<T> extends StatelessWidget {
     return _withLabel(
       label,
       DropdownButtonFormField<T>(
+        value: initialValue, // en Flutter nuevo avisa "deprecated", pero funciona
         isExpanded: true,
         icon: const Icon(Icons.arrow_downward, color: Colors.black, size: 20),
         hint: Text(hint, style: AppText.input),

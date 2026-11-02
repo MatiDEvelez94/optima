@@ -22,7 +22,7 @@ class RequestSentScreen extends StatelessWidget {
               color: AppColors.navyLight,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 28),
               child: Text(
-                'Este proceso puede demorar de 24 a 48h, sera notificado via mail cuando se apruebe',
+                'Este proceso puede demorar de 24 a 48h, será notificado vía mail cuando se apruebe',
                 textAlign: TextAlign.center,
                 style: AppText.banner,
               ),

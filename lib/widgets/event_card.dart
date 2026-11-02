@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../models/cuenta.dart';
+import '../models/evento.dart';
+import '../models/postulacion.dart';
 import '../screens/event_detail_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -11,6 +15,18 @@ class EventCard extends StatelessWidget {
     required this.size,
     required this.schedule,
     required this.needs,
+    this.salon,
+    this.mostrarSalon = true,
+    this.direccion,
+    this.puestos,
+    this.horas,
+    this.galeria,
+    this.inicio,
+    this.fin,
+    this.imageBytes,
+    this.fotos,
+    this.notas,
+    this.destino,
   });
 
   final String image;
@@ -18,12 +34,24 @@ class EventCard extends StatelessWidget {
   final String size;
   final String schedule;
   final List<String> needs;
+  final String? salon; // nombre del salon (opcional)
+  final bool mostrarSalon; // false = el nombre solo se ve en el detalle
+  final String? direccion; // donde es el evento (opcional, va al detalle)
+  final List<Puesto>? puestos; // si viene, en el detalle se puede postular
+  final double? horas; // duracion del evento (para calcular el pago)
+  final List<String>? galeria; // fotos para el detalle (rutas de assets)
+  final DateTime? inicio; // cuando empieza (para no superponer eventos)
+  final DateTime? fin; // cuando termina
+  final Uint8List? imageBytes; // foto subida por un salon real (si hay)
+  final List<ImageProvider>? fotos; // todas las fotos de un salon real
+  final String? notas; // vestimenta u observaciones (opcional)
+  final Cuenta? destino; // dueño que recibe las postulaciones (salon real)
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => EventDetailScreen(
@@ -32,18 +60,35 @@ class EventCard extends StatelessWidget {
               size: size,
               schedule: schedule,
               needs: needs,
+              salon: salon,
+              direccion: direccion,
+              puestos: puestos,
+              horas: horas,
+              inicio: inicio,
+              fin: fin,
+              imageBytes: imageBytes,
+              notas: notas,
+              destino: destino,
+              fotos: fotos ??
+                  galeria
+                      ?.map<ImageProvider>((ruta) => AssetImage(ruta))
+                      .toList(),
             ),
           ),
         );
+        // Al volver del detalle se actualizan las postulaciones enviadas
+        Postulacion.notificar();
       },
       child: SizedBox(
         width: 320,
         child: Row(
           children: [
             SizedBox(
-              width: 100,
+              width: 120,
               height: double.infinity,
-              child: Image.asset(image, fit: BoxFit.cover),
+              child: imageBytes != null
+                  ? Image.memory(imageBytes!, fit: BoxFit.cover)
+                  : Image.asset(image, fit: BoxFit.cover),
             ),
             Expanded(
               child: Container(
@@ -52,10 +97,20 @@ class EventCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (salon != null && mostrarSalon)
+                      Text(
+                        salon!,
+                        style: AppText.eventText.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     Text(date, style: AppText.eventText),
-                    Text('Dimension: $size', style: AppText.eventText),
+                    Text('Dimensión: $size', style: AppText.eventText),
                     const SizedBox(height: 6),
-                    Text('Horario: $schedule', style: AppText.eventText),
+                    Text(
+                      'Horario: $schedule',
+                      style: AppText.eventText.copyWith(color: AppColors.cream),
+                    ),
                     const SizedBox(height: 6),
                     Text('Busca:', style: AppText.eventText),
                     const SizedBox(height: 2),
@@ -88,7 +143,7 @@ class EventCard extends StatelessWidget {
                     Align(
                       alignment: Alignment.centerRight,
                       child: Text(
-                        'Mas información',
+                        'Más información',
                         style: AppText.eventText.copyWith(fontSize: 9),
                       ),
                     ),
