@@ -3,6 +3,8 @@ import '../models/cuenta.dart';
 import '../models/evento.dart';
 import '../models/evento_aceptado.dart';
 import '../models/user_session.dart';
+import '../repositories/api_client.dart';
+import '../repositories/evento_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/event_card.dart';
@@ -17,23 +19,21 @@ import 'role_screen.dart';
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
 
-  // Eventos reales: los que publicaron dueños de salon que se registraron
-  // en la app (aprobados por el administrador). Van antes que los de ejemplo.
-  List<Widget> _eventosReales() {
+  // Eventos activos que vienen de la base de datos (de salones aprobados)
+  List<Widget> _eventos() {
     final tarjetas = <Widget>[];
-    for (final dueno in Cuenta.conEventoAbierto()) {
-      final ev = dueno.evento!;
-      final salon = dueno.solicitud!;
+    for (final e in EventoRepository.activos) {
+      final ev = e.evento;
       tarjetas.add(
         EventCard(
           image: 'assets/images/salon.jpg',
-          imageBytes: salon.fotos.isNotEmpty ? salon.fotos.first : null,
-          fotos: salon.fotos.isEmpty
+          imageBytes: e.fotos.isNotEmpty ? e.fotos.first : null,
+          fotos: e.fotos.isEmpty
               ? null
-              : salon.fotos.map<ImageProvider>((b) => MemoryImage(b)).toList(),
-          salon: salon.salonNombre,
+              : e.fotos.map<ImageProvider>((b) => MemoryImage(b)).toList(),
+          salon: e.salon,
           mostrarSalon: false,
-          direccion: salon.direccion,
+          direccion: e.direccion,
           date: Evento.formatoFecha(ev.fecha),
           size: ev.invitados > 0 ? '${ev.invitados} personas' : '-',
           schedule: ev.horario,
@@ -48,105 +48,19 @@ class HomeTab extends StatelessWidget {
                   .toList(),
           puestos: ev.puestosAbiertos,
           notas: ev.notas,
-          destino: dueno,
+          eventoId: e.id,
         ),
       );
     }
     return tarjetas;
   }
 
-  // Para ver como queda un evento aceptado mientras no hay base de datos:
-  // cambiar a true y guardar. Despues volver a false.
-  static const bool _verEjemploAceptado = false;
-
   @override
   Widget build(BuildContext context) {
-    final aceptados = _verEjemploAceptado
-        ? [EventoAceptado.ejemplo]
-        : EventoAceptado.aceptados;
+    final aceptados = EventoAceptado.aceptados;
 
-    // Eventos activos: primero los reales, despues los de ejemplo
-    final eventos = <Widget>[
-      ..._eventosReales(),
-      EventCard(
-        image: 'assets/images/salon.jpg',
-        galeria: const [
-          'assets/images/salon.jpg',
-          'assets/images/salon.jpg',
-          'assets/images/salon.jpg',
-        ],
-        salon: 'Salón Los Pinos',
-        mostrarSalon: false,
-        direccion: 'Av. Libertador 1500',
-        date: 'Sábado 12/9',
-        size: '250 personas',
-        schedule: '17:30hs - 5:30hs',
-        inicio: DateTime(2026, 9, 12, 17, 30),
-        fin: DateTime(2026, 9, 13, 5, 30),
-        horas: 12,
-        needs: const [
-          'mozo (8)',
-          'bachero (3)',
-          'cocinero (2)',
-          'limpieza (2)',
-          'animación (1)',
-          'bartender (2)',
-        ],
-        puestos: const [
-          Puesto(profesion: 'Mozo', cantidad: 8, pagoHora: 5200),
-          Puesto(profesion: 'Bachero', cantidad: 3, pagoHora: 4300),
-          Puesto(profesion: 'Cocinero', cantidad: 2, pagoHora: 6000),
-          Puesto(profesion: 'Limpieza', cantidad: 2, pagoHora: 4000),
-          Puesto(profesion: 'Animación', cantidad: 1, pagoHora: 7500),
-          Puesto(profesion: 'Bartender', cantidad: 2, pagoHora: 5800),
-        ],
-      ),
-      EventCard(
-        image: 'assets/images/trabajo.jpg',
-        galeria: const [
-          'assets/images/trabajo.jpg',
-          'assets/images/trabajo.jpg',
-          'assets/images/trabajo.jpg',
-        ],
-        salon: 'Salón Aurora',
-        mostrarSalon: false,
-        direccion: 'Calle Mitre 320',
-        date: 'Domingo 13/9',
-        size: '120 personas',
-        schedule: '20:00hs - 2:00hs',
-        inicio: DateTime(2026, 9, 13, 20, 0),
-        fin: DateTime(2026, 9, 14, 2, 0),
-        horas: 6,
-        needs: const ['mozo (4)', 'cocinero (1)'],
-        puestos: const [
-          Puesto(profesion: 'Mozo', cantidad: 4, pagoHora: 4800),
-          Puesto(profesion: 'Cocinero', cantidad: 1, pagoHora: 5800),
-        ],
-      ),
-      // Este se superpone en horario con el de Los Pinos
-      EventCard(
-        image: 'assets/images/salon.jpg',
-        galeria: const [
-          'assets/images/salon.jpg',
-          'assets/images/salon.jpg',
-          'assets/images/salon.jpg',
-        ],
-        salon: 'Quinta Los Álamos',
-        mostrarSalon: false,
-        direccion: 'Ruta 60 km 8',
-        date: 'Sábado 12/9',
-        size: '300 personas',
-        schedule: '23:00hs - 6:00hs',
-        inicio: DateTime(2026, 9, 12, 23, 0),
-        fin: DateTime(2026, 9, 13, 6, 0),
-        horas: 7,
-        needs: const ['mozo (6)', 'bartender (2)'],
-        puestos: const [
-          Puesto(profesion: 'Mozo', cantidad: 6, pagoHora: 5500),
-          Puesto(profesion: 'Bartender', cantidad: 2, pagoHora: 5600),
-        ],
-      ),
-    ];
+    // Eventos activos (vienen de la base de datos)
+    final eventos = _eventos();
 
     final eventosActivos = <Widget>[
       const SizedBox(height: 24),
@@ -155,6 +69,15 @@ class HomeTab extends StatelessWidget {
         style: AppText.title.copyWith(fontSize: 24),
       ),
       const SizedBox(height: 12),
+      if (eventos.isEmpty)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          child: Text(
+            'Por ahora no hay eventos activos',
+            textAlign: TextAlign.center,
+            style: AppText.input.copyWith(color: AppColors.navy),
+          ),
+        ),
       for (final e in eventos) _FilaEvento(tarjeta: e),
     ];
 
@@ -164,8 +87,10 @@ class HomeTab extends StatelessWidget {
           child: Column(
             children: [
               if (UserSession.logueado) ...[
-                // Primero lo mio: avisos y eventos en los que me aceptaron
-                const _AvisosMozo(),
+                // Primero lo mio: avisos y eventos en los que me aceptaron.
+                // Sin const a proposito: asi los avisos nuevos que llegan del
+                // servidor se dibujan en cuanto se actualiza la pantalla
+                _AvisosMozo(),
                 const SizedBox(height: 24),
                 Text(
                   'Mis eventos',
@@ -268,6 +193,21 @@ class _AvisosMozo extends StatefulWidget {
 }
 
 class _AvisosMozoState extends State<_AvisosMozo> {
+  // Borra el aviso de la base de datos y de la pantalla
+  Future<void> _entendido(Cuenta cuenta, AvisoMozo a) async {
+    try {
+      await EventoRepository.quitarAviso(a);
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensaje)),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() => cuenta.avisos.remove(a));
+  }
+
   @override
   Widget build(BuildContext context) {
     final cuenta = UserSession.cuentaActual;
@@ -313,7 +253,7 @@ class _AvisosMozoState extends State<_AvisosMozo> {
                     alignment: Alignment.centerRight,
                     child: OptimaButton(
                       text: 'Entendido',
-                      onPressed: () => setState(() => cuenta.avisos.remove(a)),
+                      onPressed: () => _entendido(cuenta, a),
                     ),
                   ),
                 ],

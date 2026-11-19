@@ -65,8 +65,9 @@ class TrabajoRealizado {
 // Un mensaje para quien busca trabajo (por ejemplo "tu solicitud fue
 // rechazada"). Se queda en su inicio hasta que toca "Entendido".
 class AvisoMozo {
-  const AvisoMozo({required this.titulo, required this.detalle});
+  const AvisoMozo({this.id, required this.titulo, required this.detalle});
 
+  final String? id; // identificador en la base de datos
   final String titulo;
   final String detalle;
 }

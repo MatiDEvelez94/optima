@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'texto_sobre_fondo.dart';
 
 OutlineInputBorder _border(double width) => OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
@@ -24,14 +25,18 @@ Widget _withLabel(String? label, Widget field) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: AppText.campo),
+      // El nombre del campo cambia a crema si queda sobre la parte azul del fondo
+      TextoSobreFondo(
+        builder: (context, color) =>
+            Text(label, style: AppText.campo.copyWith(color: color)),
+      ),
       const SizedBox(height: 6),
       field,
     ],
   );
 }
 
-class OptimaTextField extends StatelessWidget {
+class OptimaTextField extends StatefulWidget {
   const OptimaTextField({
     super.key,
     required this.hint,
@@ -52,17 +57,40 @@ class OptimaTextField extends StatelessWidget {
   final TextInputType? keyboardType;
 
   @override
+  State<OptimaTextField> createState() => _OptimaTextFieldState();
+}
+
+class _OptimaTextFieldState extends State<OptimaTextField> {
+  // En los campos de contraseña: true = se ven los puntitos, false = se ve el texto
+  late bool _oculta = widget.obscure;
+
+  @override
   Widget build(BuildContext context) {
+    var decoracion = optimaDecoration(widget.hint);
+    if (widget.obscure) {
+      // Ojo tachado = contraseña oculta (al tocarlo se muestra); ojo abierto = visible
+      decoracion = decoracion.copyWith(
+        suffixIcon: IconButton(
+          tooltip: _oculta ? 'Mostrar contraseña' : 'Ocultar contraseña',
+          icon: Icon(
+            _oculta ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            color: AppColors.navy,
+            size: 22,
+          ),
+          onPressed: () => setState(() => _oculta = !_oculta),
+        ),
+      );
+    }
     return _withLabel(
-      label,
+      widget.label,
       TextField(
-        controller: controller,
-        obscureText: obscure,
-        readOnly: readOnly,
-        onTap: onTap,
-        keyboardType: keyboardType,
+        controller: widget.controller,
+        obscureText: _oculta,
+        readOnly: widget.readOnly,
+        onTap: widget.onTap,
+        keyboardType: widget.keyboardType,
         style: AppText.input.copyWith(color: Colors.black87),
-        decoration: optimaDecoration(hint),
+        decoration: decoracion,
       ),
     );
   }

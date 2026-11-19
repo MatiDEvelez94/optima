@@ -40,27 +40,6 @@ class EventoAceptado {
   // Lo que cobraria por el evento completo
   int get pagoEstimado => (pagoHora * horas).round();
 
-  // Eventos aceptados mientras la app esta abierta (temporal, hasta que
-  // haya base de datos y los salones puedan aceptar solicitudes)
+  // Eventos donde la persona fue confirmada (se cargan desde la base de datos)
   static final List<EventoAceptado> aceptados = [];
-
-  // Ejemplo inventado para ver como queda la pantalla
-  static final ejemplo = EventoAceptado(
-    salon: 'Salón Los Pinos',
-    tipo: 'Casamiento',
-    fecha: 'Sábado 28/11',
-    horario: '17:30hs - 5:30hs',
-    inicio: DateTime(2026, 11, 28, 17, 30),
-    fin: DateTime(2026, 11, 29, 5, 30),
-    direccion: 'Av. Libertador 1500',
-    size: '250 personas',
-    puesto: 'Mozo',
-    pagoHora: 5200,
-    horas: 12,
-    puestosEvento: const [
-      'Mozo x8 - \$5.200/h',
-      'Bachero x3 - \$4.300/h',
-      'Cocinero x2 - \$6.000/h',
-    ],
-  );
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/evento.dart';
 import '../models/postulacion.dart';
+import '../repositories/api_client.dart';
+import '../repositories/evento_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
@@ -13,7 +15,7 @@ class PostulacionesEnviadas extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
       valueListenable: Postulacion.cambios,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final enviadas = Postulacion.enviadas;
         if (enviadas.isEmpty) return const SizedBox.shrink();
 
@@ -65,7 +67,16 @@ class _PostulacionCard extends StatelessWidget {
         ],
       ),
     );
-    if (confirmo == true) Postulacion.cancelar(p);
+    if (confirmo != true) return;
+    try {
+      // Se borra de la base de datos
+      await EventoRepository.cancelarPostulacion(p);
+    } on ApiError catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensaje)),
+      );
+    }
   }
 
   @override

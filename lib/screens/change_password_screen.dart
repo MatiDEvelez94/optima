@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import '../models/validadores.dart';
+import '../repositories/api_client.dart';
+import '../repositories/cuenta_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/cuadro_errores.dart';
@@ -22,16 +24,18 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _repiteCtrl = TextEditingController();
   List<String> _errores = [];
   bool _done = false;
+  bool _enviando = false;
 
   // Revisa los datos y, si estan bien, cambia la contraseña de la cuenta
-  void _confirm() {
+  Future<void> _confirm() async {
+    if (_enviando) return;
     final actual = _actualCtrl.text;
     final nueva = _nuevaCtrl.text;
     final repite = _repiteCtrl.text;
     final errores = <String>[];
 
-    if (actual != UserSession.password) {
-      errores.add('La contraseña actual no es correcta');
+    if (actual.isEmpty) {
+      errores.add('Escribe tu contraseña actual');
     }
     if (!Validadores.password(nueva)) {
       errores.add('La nueva contraseña debe tener al menos 6 caracteres');
@@ -47,6 +51,23 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       return;
     }
 
+    setState(() {
+      _errores = [];
+      _enviando = true;
+    });
+    try {
+      // El servidor comprueba la contraseña actual y guarda la nueva
+      await CuentaRepository.cambiarPassword(actual, nueva);
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errores = [e.mensaje];
+        _enviando = false;
+      });
+      return;
+    }
+    if (!mounted) return;
+
     final cuenta = UserSession.cuentaActual;
     if (cuenta != null) {
       cuenta.cambiarPassword(nueva);
@@ -55,6 +76,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     }
     setState(() {
       _errores = [];
+      _enviando = false;
       _done = true;
     });
   }
@@ -99,7 +121,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           ),
           CuadroErrores(errores: _errores),
           const SizedBox(height: 40),
-          Center(child: OptimaLink(text: 'Confirmar', onPressed: _confirm)),
+          Center(
+            child: OptimaLink(
+              text: _enviando ? 'Guardando...' : 'Confirmar',
+              onPressed: _confirm,
+            ),
+          ),
         ],
       ),
     );

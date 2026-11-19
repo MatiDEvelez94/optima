@@ -29,6 +29,7 @@ class Confirmado {
 
 class Evento {
   Evento({
+    this.id,
     required this.tipo,
     required this.fecha,
     required this.inicio,
@@ -37,6 +38,9 @@ class Evento {
     required this.puestos,
     this.notas = '',
   });
+
+  // Identificador del evento en la base de datos (null = todavia no se guardo)
+  final String? id;
 
   // Estos datos se pueden editar despues de publicar el evento
   String tipo;
@@ -159,8 +163,7 @@ class Evento {
     return '\$$buf';
   }
 
-  // Eventos publicados mientras la app esta abierta (temporal, hasta que
-  // haya base de datos)
+  // Evento activo del salon que inicio sesion (se carga desde la base de datos)
   static final List<Evento> publicados = [];
 
   // Por ahora un salon tiene un solo evento activo: el ultimo publicado

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/cuenta.dart';
 import '../models/whatsapp.dart';
+import '../repositories/api_client.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/gradient_background.dart';
@@ -36,6 +38,21 @@ class CvScreen extends StatelessWidget {
         profesion: profesion,
       ),
     );
+  }
+
+  // Abre el PDF aparte (en el visor del celular o del navegador), donde se
+  // puede hacer zoom y guardar
+  Future<void> _descargar(BuildContext context, String ruta) async {
+    final url = ruta.startsWith('http') ? ruta : '${ApiClient.base}$ruta';
+    final abrio = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!abrio && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir el currículum')),
+      );
+    }
   }
 
   Widget _seccion(String titulo, List<String> lineas) {
@@ -136,6 +153,9 @@ class CvScreen extends StatelessWidget {
       contenido = _sinCv();
     }
 
+    // Solo si el CV real esta en el servidor se ofrece abrirlo aparte
+    final rutaCv = c?.cvUrl;
+
     return Scaffold(
       body: GradientBackground(
         child: Column(
@@ -144,19 +164,10 @@ class CvScreen extends StatelessWidget {
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: OptimaBackButton(),
             ),
-            if (c != null && c.cvNombre.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text(
-                  c.cvNombre,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.input.copyWith(color: AppColors.navy),
-                ),
-              ),
+            // El curriculum ocupa casi todo el ancho y todo el alto libre
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
                 child: Container(
                   width: double.infinity,
                   clipBehavior: Clip.antiAlias,
@@ -169,16 +180,35 @@ class CvScreen extends StatelessWidget {
                 ),
               ),
             ),
-            // Barra de abajo con el boton para contactar
+            // Barra de abajo con los botones (mas chicos y mas abajo)
             Container(
               width: double.infinity,
               color: AppColors.navyLight,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
               child: Center(
-                child: OptimaButton(
-                  text: 'Contactarte',
-                  filled: false,
-                  onPressed: () => _contactar(context),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  children: [
+                    Transform.scale(
+                      scale: 0.85,
+                      child: OptimaButton(
+                        text: 'Contactarte',
+                        filled: false,
+                        onPressed: () => _contactar(context),
+                      ),
+                    ),
+                    if (rutaCv != null && rutaCv.isNotEmpty)
+                      Transform.scale(
+                        scale: 0.85,
+                        child: OptimaButton(
+                          text: 'Descargar CV',
+                          filled: false,
+                          onPressed: () => _descargar(context, rutaCv),
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/cuenta.dart';
 import '../models/user_session.dart';
 import '../models/validadores.dart';
+import '../repositories/api_client.dart';
+import '../repositories/cuenta_repository.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/cuadro_errores.dart';
 import '../widgets/gradient_background.dart';
@@ -27,9 +28,11 @@ class _SalonOwnerScreenState extends State<SalonOwnerScreen> {
   final _telefonoCtrl = TextEditingController();
   final _dniCtrl = TextEditingController();
   List<String> _errores = [];
+  bool _comprobando = false;
 
   // Revisa los datos; si algo falla, muestra que hay que corregir
-  void _continue() {
+  Future<void> _continue() async {
+    if (_comprobando) return;
     final correo = _correoCtrl.text.trim().toLowerCase();
     final errores = <String>[];
 
@@ -37,9 +40,20 @@ class _SalonOwnerScreenState extends State<SalonOwnerScreen> {
     if (_apellidoCtrl.text.trim().isEmpty) errores.add('Escribe tu apellido');
     if (!Validadores.correo(correo)) {
       errores.add('Escribe un correo válido, por ejemplo nombre@gmail.com');
-    } else if (correo == UserSession.adminCorreo ||
-        Cuenta.buscar(correo) != null) {
+    } else if (correo == UserSession.adminCorreo) {
       errores.add('Ya existe una cuenta con ese correo');
+    } else {
+      // Se consulta en la base de datos si el correo ya esta registrado
+      setState(() => _comprobando = true);
+      try {
+        if (await CuentaRepository.correoExiste(correo)) {
+          errores.add('Ya existe una cuenta con ese correo');
+        }
+      } on ApiError catch (e) {
+        errores.add(e.mensaje);
+      }
+      if (!mounted) return;
+      setState(() => _comprobando = false);
     }
     if (!Validadores.password(_passCtrl.text)) {
       errores.add('La contraseña debe tener al menos 6 caracteres');
@@ -167,7 +181,10 @@ class _SalonOwnerScreenState extends State<SalonOwnerScreen> {
 
               const SizedBox(height: 40),
               Center(
-                child: OptimaLink(text: 'Continuar', onPressed: _continue),
+                child: OptimaLink(
+                  text: _comprobando ? 'Comprobando...' : 'Continuar',
+                  onPressed: _continue,
+                ),
               ),
               const SizedBox(height: 12),
             ],

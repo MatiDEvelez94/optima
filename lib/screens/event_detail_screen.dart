@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/cuenta.dart';
 import '../models/evento.dart';
 import '../models/postulacion.dart';
 import '../models/user_session.dart';
+import '../repositories/api_client.dart';
+import '../repositories/evento_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/carrusel_fotos.dart';
@@ -30,7 +31,7 @@ class EventDetailScreen extends StatefulWidget {
     this.horas,
     this.inicio,
     this.fin,
-    this.destino,
+    this.eventoId,
   });
 
   final String image; // foto de respaldo (ruta de assets)
@@ -48,7 +49,7 @@ class EventDetailScreen extends StatefulWidget {
   final double? horas; // duracion del evento (para calcular el pago)
   final DateTime? inicio; // cuando empieza (para no superponer eventos)
   final DateTime? fin; // cuando termina
-  final Cuenta? destino; // dueño que recibe la postulacion (salon real)
+  final String? eventoId; // id del evento en la base de datos
 
   @override
   State<EventDetailScreen> createState() => _EventDetailScreenState();
@@ -57,6 +58,7 @@ class EventDetailScreen extends StatefulWidget {
 class _EventDetailScreenState extends State<EventDetailScreen> {
   final _scroll = ScrollController();
   Puesto? _elegido;
+  bool _enviando = false;
 
   @override
   void dispose() {
@@ -93,31 +95,36 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     });
   }
 
-  void _enviarPostulacion(Puesto p) {
+  Future<void> _enviarPostulacion(Puesto p) async {
+    if (_enviando) return;
+    final mensajes = ScaffoldMessenger.of(context);
     final motivo = _motivoBloqueo;
     if (motivo != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(motivo)),
-      );
+      mensajes.showSnackBar(SnackBar(content: Text(motivo)));
       setState(() {});
       return;
     }
+    final id = widget.eventoId;
+    if (id == null) {
+      mensajes.showSnackBar(
+        const SnackBar(content: Text('Este evento no recibe postulaciones')),
+      );
+      return;
+    }
 
-    Postulacion.enviadas.add(
-      Postulacion(
-        salon: _salonKey,
-        fecha: widget.date,
-        horario: widget.schedule,
-        puesto: p.profesion,
-        pagoHora: p.pagoHora,
-        horas: widget.horas ?? 0,
-        inicio: widget.inicio,
-        fin: widget.fin,
-        destino: widget.destino,
-      ),
-    );
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
+    setState(() => _enviando = true);
+    try {
+      // Se guarda en la base de datos (el servidor vuelve a revisar las reglas)
+      await EventoRepository.postular(eventoId: id, puesto: p.profesion);
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() => _enviando = false);
+      mensajes.showSnackBar(SnackBar(content: Text(e.mensaje)));
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _enviando = false);
+    mensajes.showSnackBar(
       SnackBar(content: Text('Postulación enviada para ${p.profesion}')),
     );
   }
@@ -203,7 +210,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (motivo != null) return _buildBloqueo(motivo);
 
     return OptimaButton(
-      text: 'Enviar postulación',
+      text: _enviando ? 'Enviando...' : 'Enviar postulación',
       width: double.infinity,
       onPressed: () => _enviarPostulacion(p),
     );

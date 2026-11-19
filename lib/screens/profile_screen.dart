@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/evento.dart';
 import '../models/evento_aceptado.dart';
 import '../models/postulacion.dart';
 import '../models/solicitud_salon.dart';
 import '../models/user_session.dart';
+import '../repositories/api_client.dart';
+import '../repositories/auth_repository.dart';
+import '../repositories/cuenta_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/gradient_background.dart';
@@ -14,17 +18,19 @@ import 'editar_perfil_screen.dart';
 import 'editar_salon_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import 'recorte_foto_screen.dart';
 import 'role_screen.dart';
 
-// Cierra la sesion y vuelve a la app como invitado.
-// Los eventos y postulaciones son de quien tenia la sesion, asi que se borran
-// (cuando haya base de datos van a quedar guardados en su cuenta).
-void _cerrarSesion(BuildContext context) {
+// Cierra la sesion (tambien en el servidor) y vuelve a la app como invitado.
+// Los eventos y postulaciones que todavia viven en memoria se borran.
+void _cerrarSesion(BuildContext context) async {
+  await AuthRepository.cerrarSesion(); // cierra la sesión en el servidor
   UserSession.cuentaActual?.guardarSesion();
   UserSession.cerrarSesion();
   Evento.eliminarActivo();
   Postulacion.enviadas.clear();
   EventoAceptado.aceptados.clear();
+  if (!context.mounted) return;
   Navigator.pushAndRemoveUntil(
     context,
     MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -42,7 +48,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _picker = ImagePicker();
 
-  // Elegir o cambiar la foto de perfil (se guarda tambien en la cuenta)
+  // Elegir o cambiar la foto de perfil (se guarda en la base de datos)
   Future<void> _cambiarFoto() async {
     final picked = await _picker.pickImage(
       source: ImageSource.gallery,
@@ -50,7 +56,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       imageQuality: 85,
     );
     if (picked == null) return;
-    final bytes = await picked.readAsBytes();
+    final original = await picked.readAsBytes();
+    if (!mounted) return;
+    // Pantalla para encuadrar la foto a gusto (circulo guia)
+    final bytes = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecorteFotoScreen(bytes: original, circular: true),
+      ),
+    );
+    if (bytes == null || !mounted) return;
+    try {
+      await CuentaRepository.guardarFoto(bytes);
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensaje)),
+      );
+      return;
+    }
     if (!mounted) return;
     setState(() {
       UserSession.foto = bytes;
@@ -269,7 +293,7 @@ class _AdminProfile extends StatelessWidget {
       body: GradientBackground(
         child: ValueListenableBuilder<int>(
           valueListenable: SolicitudSalon.cambios,
-          builder: (context, _, __) {
+          builder: (context, _, _) {
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
               child: Column(
@@ -294,7 +318,7 @@ class _AdminProfile extends StatelessWidget {
                   const _InfoField(label: 'Rol', value: 'Administrador'),
                   _InfoField(
                     label: 'Correo electrónico',
-                    value: UserSession.adminCorreo,
+                    value: UserSession.correo,
                   ),
                   _InfoField(
                     label: 'Solicitudes pendientes',

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/cuenta.dart';
 import '../models/evento.dart';
 import '../models/postulacion.dart';
 import '../screens/event_detail_screen.dart';
@@ -26,7 +25,7 @@ class EventCard extends StatelessWidget {
     this.imageBytes,
     this.fotos,
     this.notas,
-    this.destino,
+    this.eventoId,
   });
 
   final String image;
@@ -45,7 +44,7 @@ class EventCard extends StatelessWidget {
   final Uint8List? imageBytes; // foto subida por un salon real (si hay)
   final List<ImageProvider>? fotos; // todas las fotos de un salon real
   final String? notas; // vestimenta u observaciones (opcional)
-  final Cuenta? destino; // dueño que recibe las postulaciones (salon real)
+  final String? eventoId; // id del evento en la base de datos
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +67,7 @@ class EventCard extends StatelessWidget {
               fin: fin,
               imageBytes: imageBytes,
               notas: notas,
-              destino: destino,
+              eventoId: eventoId,
               fotos: fotos ??
                   galeria
                       ?.map<ImageProvider>((ruta) => AssetImage(ruta))

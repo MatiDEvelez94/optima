@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../repositories/auth_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/gradient_background.dart';
@@ -15,14 +16,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Después de 3 segundos pasa sola al inicio (como invitado)
-    Future.delayed(const Duration(seconds: 3), () {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    });
+    _iniciar();
+  }
+
+  // Muestra el logo 3 segundos y, mientras tanto, mira si la persona ya tenia
+  // la sesion abierta en el servidor (por ejemplo al recargar la pagina)
+  Future<void> _iniciar() async {
+    final espera = Future<void>.delayed(const Duration(seconds: 3));
+    await AuthRepository.restaurarSesion();
+    await espera;
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
 
   @override

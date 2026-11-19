@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/solicitud_salon.dart';
 import '../models/user_session.dart';
+import '../repositories/cuenta_repository.dart';
+import '../repositories/evento_repository.dart';
 import '../theme/app_colors.dart';
 import 'admin_salones_tab.dart';
 import 'admin_solicitudes_tab.dart';
@@ -13,7 +15,7 @@ import 'salon_en_revision_tab.dart';
 
 // Marco de la app con la barra de navegación de abajo.
 // Administrador: casita = Solicitudes, lupa = Salones activos, rayitas = Perfil
-// Dueño de salon: casita = Inicio, lupa = Buscar, tres rayitas = Perfil
+// Dueño de salon: casita = Inicio, lupa = Explorar, tres rayitas = Perfil
 // Mozo: casita = Inicio, lupa = Historial, tres rayitas = Perfil
 // Invitado: casita = Inicio, tres rayitas = Perfil
 class HomeScreen extends StatefulWidget {
@@ -25,6 +27,21 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _actualizar();
+  }
+
+  // Trae de la base de datos lo que pudo haber cambiado (salon aprobado,
+  // eventos nuevos, postulaciones, avisos...) y vuelve a dibujar las pestañas
+  Future<void> _actualizar() async {
+    await CuentaRepository.refrescar();
+    if (mounted) setState(() {});
+    await EventoRepository.refrescar();
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (tresTabs)
         BottomNavigationBarItem(
           icon: Icon(Icons.search, size: iconSize),
-          label: esAdmin ? 'Salones' : (esMozo ? 'Historial' : 'Buscar'),
+          label: esAdmin ? 'Salones' : (esMozo ? 'Historial' : 'Explorar'),
         ),
       BottomNavigationBarItem(
         icon: Icon(Icons.menu, size: iconSize),
@@ -81,7 +98,10 @@ class _HomeScreenState extends State<HomeScreen> {
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
+        onTap: (i) {
+          setState(() => _index = i);
+          _actualizar();
+        },
         type: BottomNavigationBarType.fixed,
         backgroundColor: AppColors.navyLight,
         selectedItemColor: AppColors.cream,

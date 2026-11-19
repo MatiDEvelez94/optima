@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/user_session.dart';
 import '../models/validadores.dart';
+import '../repositories/api_client.dart';
+import '../repositories/cuenta_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/cuadro_errores.dart';
@@ -24,6 +26,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
   late final _telefonoCtrl =
       TextEditingController(text: _soloDiez(UserSession.telefono));
   List<String> _errores = [];
+  bool _guardando = false;
 
   // "+54 9 1139373911" -> "1139373911"
   static String _soloDiez(String telefono) {
@@ -39,7 +42,8 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     super.dispose();
   }
 
-  void _guardar() {
+  Future<void> _guardar() async {
+    if (_guardando) return;
     final nombre = _nombreCtrl.text.trim();
     final apellido = _apellidoCtrl.text.trim();
     final tel = _telefonoCtrl.text.replaceAll(RegExp(r'\D'), '');
@@ -56,6 +60,27 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       return;
     }
 
+    setState(() {
+      _errores = [];
+      _guardando = true;
+    });
+    try {
+      // Se guarda en la base de datos
+      await CuentaRepository.guardarPerfil(
+        nombre: nombre,
+        apellido: apellido,
+        telefono: tel,
+      );
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errores = [e.mensaje];
+        _guardando = false;
+      });
+      return;
+    }
+    if (!mounted) return;
+
     final telefono = '+54 9 $tel';
     UserSession.nombre = nombre;
     UserSession.apellido = apellido;
@@ -66,8 +91,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
       cuenta.apellido = apellido;
       cuenta.telefono = telefono;
     }
+    final mensajes = ScaffoldMessenger.of(context);
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
+    mensajes.showSnackBar(
       const SnackBar(content: Text('Datos actualizados')),
     );
   }
@@ -125,7 +151,12 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
               ),
               CuadroErrores(errores: _errores),
               const SizedBox(height: 24),
-              Center(child: OptimaLink(text: 'Guardar', onPressed: _guardar)),
+              Center(
+                child: OptimaLink(
+                  text: _guardando ? 'Guardando...' : 'Guardar',
+                  onPressed: _guardar,
+                ),
+              ),
               const SizedBox(height: 12),
             ],
           ),

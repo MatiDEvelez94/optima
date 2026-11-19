@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../models/cuenta.dart';
-import '../models/solicitud_salon.dart';
-import '../models/user_session.dart';
-import '../theme/app_colors.dart';
+import '../repositories/api_client.dart';
+import '../repositories/auth_repository.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/cuadro_errores.dart';
 import '../widgets/gradient_background.dart';
@@ -27,6 +25,7 @@ class _SalonDataScreenState extends State<SalonDataScreen> {
   final _capacidadCtrl = TextEditingController();
   final List<Uint8List> _photos = [];
   List<String> _errores = [];
+  bool _enviando = false;
 
   @override
   void dispose() {
@@ -52,10 +51,10 @@ class _SalonDataScreenState extends State<SalonDataScreen> {
     await launchUrl(url, mode: LaunchMode.externalApplication);
   }
 
-  // Guarda los datos, crea la cuenta y manda la solicitud para que el
-  // administrador la revise
-  void _enviarSolicitud() {
-    // Revisa los datos; si algo falla, muestra que hay que corregir
+  // Revisa los datos y los manda al servidor, que crea la cuenta del dueño
+  // y su salon (queda pendiente hasta que el administrador lo apruebe)
+  Future<void> _enviarSolicitud() async {
+    if (_enviando) return;
     final errores = <String>[];
     if (_nombreCtrl.text.trim().isEmpty) {
       errores.add('Escribe el nombre del salón');
@@ -74,29 +73,26 @@ class _SalonDataScreenState extends State<SalonDataScreen> {
       return;
     }
 
-    UserSession.salonNombre = _nombreCtrl.text.trim();
-    UserSession.salonDireccion = _addressCtrl.text.trim();
-    UserSession.salonCapacidad = _capacidadCtrl.text.trim();
-    UserSession.salonFotos = List.of(_photos);
-    UserSession.rol = 'salon';
-    UserSession.logueado = true;
-
-    final solicitud = SolicitudSalon(
-      nombreDueno: UserSession.nombre,
-      apellidoDueno: UserSession.apellido,
-      correo: UserSession.correo,
-      telefono: UserSession.telefono,
-      dni: UserSession.dni,
-      salonNombre: UserSession.salonNombre,
-      direccion: UserSession.salonDireccion,
-      capacidad: UserSession.salonCapacidad,
-      fotos: List.of(_photos),
-      fecha: DateTime.now(),
-    );
-    SolicitudSalon.todas.add(solicitud);
-    UserSession.solicitudSalon = solicitud;
-    SolicitudSalon.notificar();
-    Cuenta.crearDesdeSesion(solicitud: solicitud);
+    setState(() {
+      _errores = [];
+      _enviando = true;
+    });
+    try {
+      await AuthRepository.registrarSalon(
+        salonNombre: _nombreCtrl.text.trim(),
+        direccion: _addressCtrl.text.trim(),
+        capacidad: _capacidadCtrl.text.trim(),
+        fotos: List.of(_photos),
+      );
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errores = [e.mensaje];
+        _enviando = false;
+      });
+      return;
+    }
+    if (!mounted) return;
 
     Navigator.push(
       context,
@@ -161,7 +157,7 @@ class _SalonDataScreenState extends State<SalonDataScreen> {
               const SizedBox(height: 40),
               Center(
                 child: OptimaLink(
-                  text: 'Continuar',
+                  text: _enviando ? 'Enviando...' : 'Continuar',
                   onPressed: _enviarSolicitud,
                 ),
               ),

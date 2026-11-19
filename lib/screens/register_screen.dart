@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import '../models/cuenta.dart';
-import '../models/user_session.dart';
 import '../models/validadores.dart';
+import '../repositories/api_client.dart';
+import '../repositories/auth_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/cuadro_errores.dart';
@@ -13,6 +13,7 @@ import '../widgets/optima_back_button.dart';
 import '../widgets/optima_button.dart';
 import '../widgets/optima_text_field.dart';
 import 'home_screen.dart';
+import 'recorte_foto_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -29,6 +30,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _correoCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
+  bool _enviando = false;
   Uint8List? _photoBytes;
   String? _cvName;
   Uint8List? _cvBytes;
@@ -41,18 +43,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
       imageQuality: 85,
     );
     if (picked == null) return;
-    final bytes = await picked.readAsBytes();
+    final original = await picked.readAsBytes();
     if (!mounted) return;
+    // Pantalla para encuadrar la foto a gusto (circulo guia)
+    final bytes = await Navigator.push<Uint8List>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecorteFotoScreen(bytes: original, circular: true),
+      ),
+    );
+    if (bytes == null || !mounted) return;
     setState(() => _photoBytes = bytes);
   }
 
   Future<void> _pickCv() async {
-    final files = await FilePicker.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
+    // Sin filtro de extension: en el iPhone el filtro por tipo deja los
+    // archivos en gris y no se pueden elegir. El control de que sea PDF
+    // se hace despues, mirando el nombre del archivo.
+    final files = await FilePicker.pickFiles(type: FileType.any);
     if (files.isEmpty) return;
     final file = files.first;
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('El currículum tiene que ser un archivo PDF')),
+      );
+      return;
+    }
     final bytes = await file.readAsBytes();
     if (!mounted) return;
     setState(() {
@@ -62,7 +79,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   // Revisa los datos; si algo falla, muestra que hay que corregir
-  void _continue() {
+  Future<void> _continue() async {
+    if (_enviando) return;
     final correo = _correoCtrl.text.trim().toLowerCase();
     final errores = <String>[];
 
@@ -73,9 +91,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
     if (!Validadores.correo(correo)) {
       errores.add('Escribe un correo válido, por ejemplo nombre@gmail.com');
-    } else if (correo == UserSession.adminCorreo ||
-        Cuenta.buscar(correo) != null) {
-      errores.add('Ya existe una cuenta con ese correo');
     }
     if (!Validadores.password(_passCtrl.text)) {
       errores.add('La contraseña debe tener al menos 6 caracteres');
@@ -92,18 +107,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    UserSession.nombre = _nombreCtrl.text.trim();
-    UserSession.apellido = _apellidoCtrl.text.trim();
-    UserSession.dni = _dniCtrl.text.trim();
-    UserSession.correo = correo;
-    UserSession.password = _passCtrl.text;
-    UserSession.telefono = '+54 9 ${_telefonoCtrl.text.trim()}';
-    UserSession.foto = _photoBytes;
-    UserSession.cvNombre = _cvName ?? '';
-    UserSession.cvBytes = _cvBytes;
-    UserSession.rol = 'mozo';
-    UserSession.logueado = true;
-    Cuenta.crearDesdeSesion();
+    setState(() {
+      _errores = [];
+      _enviando = true;
+    });
+    try {
+      // El servidor guarda la cuenta en la base de datos
+      await AuthRepository.registrarMozo(
+        nombre: _nombreCtrl.text.trim(),
+        apellido: _apellidoCtrl.text.trim(),
+        dni: _dniCtrl.text.trim(),
+        correo: correo,
+        password: _passCtrl.text,
+        telefono: _telefonoCtrl.text.trim(),
+        foto: _photoBytes,
+        cvNombre: _cvName ?? '',
+        cvBytes: _cvBytes,
+      );
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errores = [e.mensaje];
+        _enviando = false;
+      });
+      return;
+    }
+    if (!mounted) return;
 
     // La persona que busca trabajo no necesita aprobacion: va directo al inicio
     Navigator.pushAndRemoveUntil(
@@ -320,7 +349,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               const SizedBox(height: 28),
               Center(
-                child: OptimaLink(text: 'Continuar', onPressed: _continue),
+                child: OptimaLink(
+                  text: _enviando ? 'Creando cuenta...' : 'Continuar',
+                  onPressed: _continue,
+                ),
               ),
               const SizedBox(height: 12),
             ],

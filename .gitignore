@@ -46,3 +46,9 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+# Optima: datos privados y archivos generados
+backend/servidor/config.py
+backend/servidor/uploads/
+backend/servidor/__pycache__/
+backend/movil/
+*.rar

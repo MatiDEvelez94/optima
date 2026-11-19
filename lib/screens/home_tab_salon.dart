@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import '../models/cuenta.dart';
 import '../models/evento.dart';
-import '../models/postulacion.dart';
 import '../models/solicitud_salon.dart';
 import '../models/user_session.dart';
+import '../repositories/api_client.dart';
+import '../repositories/cuenta_repository.dart';
+import '../repositories/evento_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/gradient_background.dart';
@@ -14,29 +15,6 @@ import 'crear_evento_screen.dart';
 import 'event_detail_screen.dart';
 import 'historial_screen.dart';
 import 'postulante_screen.dart';
-
-// Datos de ejemplo de una solicitud recibida (hasta que haya base de datos)
-class _Solicitud {
-  // Persona de ejemplo (sin cuenta real)
-  const _Solicitud(this.nombre, this.profesion, double this.calificacion)
-      : cuenta = null,
-        postulacion = null;
-
-  // Persona real que se postulo desde su cuenta
-  const _Solicitud.real({
-    required this.nombre,
-    required this.profesion,
-    required this.calificacion,
-    required Cuenta this.cuenta,
-    required Postulacion this.postulacion,
-  });
-
-  final String nombre;
-  final String profesion;
-  final double? calificacion; // null = todavia sin calificaciones
-  final Cuenta? cuenta; // null = persona de ejemplo
-  final Postulacion? postulacion;
-}
 
 // Inicio para quien inscribio un salon.
 // Sin evento: solo el boton para crearlo.
@@ -49,67 +27,12 @@ class HomeTabSalon extends StatefulWidget {
 }
 
 class _HomeTabSalonState extends State<HomeTabSalon> {
-  // Personas de ejemplo (hasta que haya base de datos): 3 por puesto
-  static const _solicitudes = [
-    // Mozo
-    _Solicitud('Lucía Fernández', 'Mozo', 4.5),
-    _Solicitud('Sofía Ruiz', 'Mozo', 4.2),
-    _Solicitud('Matías Castro', 'Mozo', 4.6),
-    // Cocinero
-    _Solicitud('Martín Gómez', 'Cocinero', 4.8),
-    _Solicitud('Walter Puga', 'Cocinero', 4.3),
-    _Solicitud('Valentina Ríos', 'Cocinero', 4.1),
-    // Bachero
-    _Solicitud('Diego López', 'Bachero', 3.9),
-    _Solicitud('Iván Reniero', 'Bachero', 4.4),
-    _Solicitud('Tomás Herrera', 'Bachero', 4.0),
-    // Animacion
-    _Solicitud('Camila Torres', 'Animación', 4.7),
-    _Solicitud('Analuz Pontis', 'Animación', 4.5),
-    _Solicitud('Nicolás Paz', 'Animación', 4.2),
-    // Limpieza
-    _Solicitud('Lara Chiara', 'Limpieza', 4.3),
-    _Solicitud('Rosa Acosta', 'Limpieza', 4.0),
-    _Solicitud('Julián Vega', 'Limpieza', 3.8),
-    // Bartender
-    _Solicitud('Agustina Molina', 'Bartender', 4.6),
-    _Solicitud('Franco Díaz', 'Bartender', 4.4),
-    _Solicitud('Brenda Silva', 'Bartender', 4.1),
-    // Decorador
-    _Solicitud('Florencia Sosa', 'Decorador', 4.7),
-    _Solicitud('Gonzalo Luna', 'Decorador', 4.3),
-    _Solicitud('Julieta Ramos', 'Decorador', 4.5),
-  ];
-
   String _filtro = 'Todos';
   int _filtroKey = 0; // cambia para volver el filtro a "Todos"
 
   void _reiniciarFiltro() {
     _filtro = 'Todos';
     _filtroKey++;
-  }
-
-  // Solicitudes que todavia no se confirmaron ni rechazaron:
-  // primero las de personas reales y despues las de ejemplo
-  List<_Solicitud> _pendientesDe(Evento evento) {
-    final dueno = UserSession.cuentaActual;
-    final reales = <_Solicitud>[];
-    if (dueno != null) {
-      for (final r in Cuenta.recibidasPor(dueno)) {
-        reales.add(
-          _Solicitud.real(
-            nombre: '${r.mozo.nombre} ${r.mozo.apellido}'.trim(),
-            profesion: r.postulacion.puesto,
-            calificacion: r.mozo.promedio,
-            cuenta: r.mozo,
-            postulacion: r.postulacion,
-          ),
-        );
-      }
-    }
-    final ejemplos =
-        _solicitudes.where((s) => !evento.decididos.contains(s.nombre));
-    return [...reales, ...ejemplos];
   }
 
   Future<void> _crearEvento() async {
@@ -173,13 +96,15 @@ class _HomeTabSalonState extends State<HomeTabSalon> {
   }
 
   Future<void> _confirmarEliminar() async {
+    final evento = Evento.activo;
+    if (evento == null) return;
     final confirmo = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar evento'),
         content: Text(
-          (Evento.activo?.confirmados.isNotEmpty ?? false)
-              ? 'Hay ${Evento.activo!.confirmados.length} persona(s) '
+          evento.confirmados.isNotEmpty
+              ? 'Hay ${evento.confirmados.length} persona(s) '
                   'confirmada(s). Si eliminas el evento se las saca, se '
                   'borran las solicitudes y no se califica a nadie. Si el '
                   'evento ya se hizo, usa "Finalizar evento".'
@@ -198,19 +123,23 @@ class _HomeTabSalonState extends State<HomeTabSalon> {
       ),
     );
     if (confirmo != true || !mounted) return;
-    setState(() {
-      final evento = Evento.activo;
-      final dueno = UserSession.cuentaActual;
-      if (evento != null && dueno != null) {
-        Cuenta.retirarEvento(dueno, evento, cancelado: true);
-      }
-      Evento.eliminarActivo();
-      _reiniciarFiltro();
-    });
+    try {
+      // Se cancela en la base de datos y a las personas afectadas les llega un aviso
+      await EventoRepository.eliminarEvento(evento);
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensaje)),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(_reiniciarFiltro);
   }
 
-  // Abre el perfil de la persona; al volver, si el dueño decidio, la saca
-  Future<void> _verPerfil(_Solicitud s) async {
+  // Abre el perfil de la persona; al volver, si el dueño decidio, se guarda
+  // en la base de datos y la persona sale de la lista
+  Future<void> _verPerfil(SolicitudRecibida s) async {
     final resultado = await Navigator.push<String>(
       context,
       MaterialPageRoute(
@@ -218,50 +147,24 @@ class _HomeTabSalonState extends State<HomeTabSalon> {
           nombre: s.nombre,
           profesion: s.profesion,
           calificacion: s.calificacion,
-          telefono: s.cuenta?.telefono,
+          telefono: s.telefono,
           cuenta: s.cuenta,
         ),
       ),
     );
-    final evento = Evento.activo;
-    if (resultado == null || evento == null || !mounted) return;
+    if (resultado == null || !mounted) return;
 
-    if (resultado == 'confirmada') {
-      // No se puede confirmar a mas personas de las que pidio el evento
-      final cupo = evento.cupoDe(s.profesion);
-      if (evento.confirmadosDe(s.profesion) >= cupo) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Ya completaste los $cupo lugares de ${s.profesion}. '
-              'Rechaza a alguien o edita el evento para pedir más.',
-            ),
-          ),
-        );
-        return;
-      }
-      setState(() {
-        evento.confirmados.add(
-          Confirmado(
-            nombre: s.nombre,
-            profesion: s.profesion,
-            cuenta: s.cuenta,
-          ),
-        );
-        // Si es una persona real, el evento pasa a "Mis eventos" de ella
-        if (s.cuenta != null && s.postulacion != null) {
-          s.cuenta!.aceptarPostulacion(s.postulacion!, evento);
-        }
-        if (s.cuenta == null) evento.decididos.add(s.nombre);
-      });
-    } else {
-      setState(() {
-        if (s.cuenta != null && s.postulacion != null) {
-          s.cuenta!.rechazarPostulacion(s.postulacion!);
-        }
-        if (s.cuenta == null) evento.decididos.add(s.nombre);
-      });
+    try {
+      await EventoRepository.decidir(s, confirmar: resultado == 'confirmada');
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensaje)),
+      );
+      return;
     }
+    if (!mounted) return;
+    setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Solicitud de ${s.nombre} $resultado')),
     );
@@ -271,6 +174,21 @@ class _HomeTabSalonState extends State<HomeTabSalon> {
   bool get _mostrarAvisoAprobado {
     final s = UserSession.solicitudSalon;
     return s != null && s.estado == EstadoSalon.aprobada && !s.avisoVisto;
+  }
+
+  // Guarda en la base de datos que el dueño ya vio el cartel
+  Future<void> _entendido() async {
+    try {
+      await CuentaRepository.marcarAvisoVisto();
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensaje)),
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() => UserSession.solicitudSalon?.avisoVisto = true);
   }
 
   Widget _avisoAprobado() {
@@ -330,9 +248,7 @@ class _HomeTabSalonState extends State<HomeTabSalon> {
             alignment: Alignment.centerRight,
             child: OptimaButton(
               text: 'Entendido',
-              onPressed: () => setState(
-                () => UserSession.solicitudSalon?.avisoVisto = true,
-              ),
+              onPressed: _entendido,
             ),
           ),
         ],
@@ -372,7 +288,7 @@ class _HomeTabSalonState extends State<HomeTabSalon> {
     final profesionesEvento = evento.puestos.map((p) => p.profesion).toList();
 
     // Solo se muestran solicitudes de los puestos que pidio el evento
-    final delEvento = _pendientesDe(evento).where(
+    final delEvento = EventoRepository.recibidas.where(
       (s) => profesionesEvento.any(
         (p) => p.toLowerCase() == s.profesion.toLowerCase(),
       ),
@@ -580,7 +496,7 @@ class _EventoCard extends StatelessWidget {
 class _SolicitudCard extends StatelessWidget {
   const _SolicitudCard({required this.solicitud, required this.onVerPerfil});
 
-  final _Solicitud solicitud;
+  final SolicitudRecibida solicitud;
   final VoidCallback onVerPerfil;
 
   @override

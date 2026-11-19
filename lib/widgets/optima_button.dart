@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
+import 'texto_sobre_fondo.dart';
 
 class OptimaButton extends StatelessWidget {
   const OptimaButton({
@@ -49,9 +50,17 @@ class OptimaLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Negro sobre el crema; crema cuando queda sobre la parte azul del fondo
     return TextButton(
       onPressed: onPressed,
-      child: Text(text, style: AppText.link, textAlign: TextAlign.center),
+      child: TextoSobreFondo(
+        oscuro: Colors.black,
+        builder: (context, color) => Text(
+          text,
+          style: AppText.link.copyWith(color: color),
+          textAlign: TextAlign.center,
+        ),
+      ),
     );
   }
 }

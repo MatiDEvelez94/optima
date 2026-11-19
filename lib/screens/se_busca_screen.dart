@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/cuenta.dart';
 import '../models/evento.dart';
-import '../models/user_session.dart';
+import '../repositories/api_client.dart';
+import '../repositories/evento_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/optima_back_button.dart';
-import '../widgets/optima_button.dart';
 import '../widgets/optima_text_field.dart';
 
 // Datos de un puesto mientras se completa la pantalla
@@ -69,6 +68,7 @@ class _SeBuscaScreenState extends State<SeBuscaScreen> {
   ];
 
   bool get _editando => widget.editar != null;
+  bool _guardando = false;
 
   @override
   void initState() {
@@ -115,7 +115,8 @@ class _SeBuscaScreenState extends State<SeBuscaScreen> {
     );
   }
 
-  void _publicar() {
+  Future<void> _publicar() async {
+    if (_guardando) return;
     final puestos = <Puesto>[];
     for (final f in _forms) {
       if (!f.activo) continue;
@@ -137,32 +138,26 @@ class _SeBuscaScreenState extends State<SeBuscaScreen> {
       return;
     }
 
-    final editado = widget.editar;
-    if (editado != null) {
-      // Se modifica el mismo evento (se conservan los confirmados)
-      editado
-        ..tipo = widget.tipo
-        ..fecha = widget.fecha
-        ..inicio = widget.inicio
-        ..fin = widget.fin
-        ..invitados = widget.invitados
-        ..puestos = puestos
-        ..notas = widget.notas;
-      final dueno = UserSession.cuentaActual;
-      if (dueno != null) Cuenta.sincronizarEvento(dueno, editado);
-    } else {
-      Evento.publicados.add(
-        Evento(
-          tipo: widget.tipo,
-          fecha: widget.fecha,
-          inicio: widget.inicio,
-          fin: widget.fin,
-          invitados: widget.invitados,
-          puestos: puestos,
-          notas: widget.notas,
-        ),
+    setState(() => _guardando = true);
+    try {
+      // Se guarda en la base de datos (si se edita, se conservan los confirmados)
+      await EventoRepository.guardarEvento(
+        editar: widget.editar,
+        tipo: widget.tipo,
+        fecha: widget.fecha,
+        inicio: widget.inicio,
+        fin: widget.fin,
+        invitados: widget.invitados,
+        puestos: puestos,
+        notas: widget.notas,
       );
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      _aviso(e.mensaje);
+      return;
     }
+    if (!mounted) return;
 
     // Vuelve al inicio y avisa
     final messenger = ScaffoldMessenger.of(context);
@@ -334,7 +329,9 @@ class _SeBuscaScreenState extends State<SeBuscaScreen> {
                 child: TextButton(
                   onPressed: _publicar,
                   child: Text(
-                    _editando ? 'Guardar cambios' : 'Publicar evento',
+                    _guardando
+                        ? 'Guardando...'
+                        : (_editando ? 'Guardar cambios' : 'Publicar evento'),
                     style: AppText.link.copyWith(
                       color: AppColors.cream,
                       decorationColor: AppColors.cream,

@@ -6,6 +6,8 @@ import 'evento_aceptado.dart';
 // Una postulacion enviada por quien busca trabajo a un puesto de un evento
 class Postulacion {
   Postulacion({
+    this.id,
+    this.eventoId,
     required this.salon,
     required this.fecha,
     required this.horario,
@@ -17,6 +19,8 @@ class Postulacion {
     this.destino,
   });
 
+  final String? id; // identificador en la base de datos
+  final String? eventoId; // evento al que se postulo
   final String salon;
   final String fecha;
   final String horario;
@@ -35,6 +39,8 @@ class Postulacion {
     for (final p in ev.puestos) {
       if (p.profesion.toLowerCase() == puesto.toLowerCase()) {
         return Postulacion(
+          id: id,
+          eventoId: eventoId,
           salon: salon,
           fecha: Evento.formatoFecha(ev.fecha),
           horario: ev.horario,
@@ -50,25 +56,19 @@ class Postulacion {
     return null;
   }
 
-  // Postulaciones enviadas mientras la app esta abierta (temporal, hasta que
-  // haya base de datos y le lleguen al dueño del salon)
+  // Postulaciones pendientes de la persona (se cargan desde la base de datos)
   static final List<Postulacion> enviadas = [];
 
   // Avisa a las pantallas que la lista cambio (para que se actualicen)
   static final ValueNotifier<int> cambios = ValueNotifier<int>(0);
   static void notificar() => cambios.value++;
 
-  // Cancela una postulacion pendiente
-  static void cancelar(Postulacion p) {
-    enviadas.remove(p);
-    notificar();
-  }
-
   // Devuelve el motivo por el que NO se puede enviar una postulacion nueva,
   // o null si se puede. Reglas:
   //  1) en un mismo salon solo se puede elegir un puesto
   //  2) no se puede postular a un evento que se superponga en horario con una
   //     postulacion ya enviada o con un evento en el que ya fue aceptado
+  // (El servidor vuelve a revisar estas reglas al guardar.)
   static String? motivoBloqueo({
     required String salon,
     DateTime? inicio,

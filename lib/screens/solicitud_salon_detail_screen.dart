@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/solicitud_salon.dart';
+import '../repositories/api_client.dart';
+import '../repositories/cuenta_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/carrusel_fotos.dart';
@@ -15,9 +17,18 @@ class SolicitudSalonDetailScreen extends StatelessWidget {
 
   final SolicitudSalon solicitud;
 
-  void _decidir(BuildContext context, EstadoSalon estado) {
-    solicitud.estado = estado;
-    SolicitudSalon.notificar();
+  Future<void> _decidir(BuildContext context, EstadoSalon estado) async {
+    try {
+      // Se guarda en la base de datos
+      await CuentaRepository.resolver(solicitud, estado);
+    } on ApiError catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensaje)),
+      );
+      return;
+    }
+    if (!context.mounted) return;
     Navigator.pop(
       context,
       estado == EstadoSalon.aprobada ? 'aprobado' : 'rechazado',

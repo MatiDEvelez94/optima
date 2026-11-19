@@ -5,7 +5,7 @@ import '../screens/recorte_foto_screen.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
-// Fotos de un salon: agregar (con recorte), quitar, elegir la portada y
+// Fotos de un salon: agregar, quitar, elegir la portada y
 // volver a encuadrar una foto. Se usa al inscribir y al editar el salon.
 // La primera foto es la portada: es la que sale en las tarjetas.
 class GrillaFotos extends StatelessWidget {
@@ -45,9 +45,8 @@ class GrillaFotos extends StatelessWidget {
     for (final archivo in elegidas.take(lugar)) {
       final bytes = await archivo.readAsBytes();
       if (!context.mounted) return;
-      final recortada = await _encuadrar(context, bytes);
-      if (recortada == null) continue; // la descartó
-      lista.add(recortada);
+      // Se agrega directo, sin pantalla de recorte (se puede encuadrar despues con el icono)
+      lista.add(bytes);
       onChanged(List<Uint8List>.of(lista));
       if (!context.mounted) return;
     }
@@ -83,15 +82,23 @@ class GrillaFotos extends StatelessWidget {
         border: Border.all(color: AppColors.navy),
       );
 
-  Widget _boton(IconData icono, VoidCallback onTap, {String? tip}) {
+  // Amarillo de la portada
+  static const Color _amarillo = Color(0xFFF5B800);
+
+  Widget _boton(
+    IconData icono,
+    VoidCallback onTap, {
+    String? tip,
+    Color fondo = AppColors.navy,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Tooltip(
         message: tip ?? '',
         child: Container(
           padding: const EdgeInsets.all(4),
-          decoration: const BoxDecoration(
-            color: AppColors.navy,
+          decoration: BoxDecoration(
+            color: fondo,
             shape: BoxShape.circle,
           ),
           child: Icon(icono, size: 14, color: AppColors.cream),
@@ -152,31 +159,13 @@ class GrillaFotos extends StatelessWidget {
               Positioned(
                 top: 4,
                 left: 4,
+                // Portada: estrella y circulo amarillos. Las demas: estrella vacia azul
                 child: i == 0
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.navy,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              size: 11,
-                              color: AppColors.cream,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              'Portada',
-                              style: AppText.eventText.copyWith(fontSize: 9),
-                            ),
-                          ],
-                        ),
+                    ? _boton(
+                        Icons.star,
+                        () {},
+                        tip: 'Portada',
+                        fondo: _amarillo,
                       )
                     : _boton(
                         Icons.star_border,

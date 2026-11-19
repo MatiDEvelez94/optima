@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/user_session.dart';
-import '../theme/app_colors.dart';
+import '../repositories/api_client.dart';
+import '../repositories/cuenta_repository.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/cuadro_errores.dart';
 import '../widgets/gradient_background.dart';
@@ -26,6 +27,7 @@ class _EditarSalonScreenState extends State<EditarSalonScreen> {
       TextEditingController(text: UserSession.salonCapacidad);
   late final List<Uint8List> _photos = List.of(UserSession.salonFotos);
   List<String> _errores = [];
+  bool _guardando = false;
 
   @override
   void dispose() {
@@ -35,7 +37,8 @@ class _EditarSalonScreenState extends State<EditarSalonScreen> {
     super.dispose();
   }
 
-  void _guardar() {
+  Future<void> _guardar() async {
+    if (_guardando) return;
     final nombre = _nombreCtrl.text.trim();
     final direccion = _direccionCtrl.text.trim();
     final capacidad = _capacidadCtrl.text.trim();
@@ -52,6 +55,28 @@ class _EditarSalonScreenState extends State<EditarSalonScreen> {
       return;
     }
 
+    setState(() {
+      _errores = [];
+      _guardando = true;
+    });
+    try {
+      // Se guarda en la base de datos
+      await CuentaRepository.guardarSalon(
+        nombre: nombre,
+        direccion: direccion,
+        capacidad: capacidad,
+        fotos: List.of(_photos),
+      );
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errores = [e.mensaje];
+        _guardando = false;
+      });
+      return;
+    }
+    if (!mounted) return;
+
     UserSession.salonNombre = nombre;
     UserSession.salonDireccion = direccion;
     UserSession.salonCapacidad = capacidad;
@@ -63,8 +88,9 @@ class _EditarSalonScreenState extends State<EditarSalonScreen> {
       solicitud.capacidad = capacidad;
       solicitud.fotos = List.of(_photos);
     }
+    final mensajes = ScaffoldMessenger.of(context);
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
+    mensajes.showSnackBar(
       const SnackBar(content: Text('Salón actualizado')),
     );
   }
@@ -116,7 +142,12 @@ class _EditarSalonScreenState extends State<EditarSalonScreen> {
               ),
               CuadroErrores(errores: _errores),
               const SizedBox(height: 24),
-              Center(child: OptimaLink(text: 'Guardar', onPressed: _guardar)),
+              Center(
+                child: OptimaLink(
+                  text: _guardando ? 'Guardando...' : 'Guardar',
+                  onPressed: _guardar,
+                ),
+              ),
               const SizedBox(height: 12),
             ],
           ),

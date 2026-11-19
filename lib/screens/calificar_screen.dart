@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/cuenta.dart';
 import '../models/evento.dart';
-import '../models/evento_finalizado.dart';
-import '../models/user_session.dart';
+import '../repositories/api_client.dart';
+import '../repositories/evento_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/gradient_background.dart';
@@ -41,79 +40,34 @@ class _CalificarScreenState extends State<CalificarScreen> {
     super.dispose();
   }
 
-  void _finalizar() {
+  bool _guardando = false;
+
+  Future<void> _finalizar() async {
+    if (_guardando) return;
     final ev = widget.evento;
-    final dueno = UserSession.cuentaActual;
 
-    final nombreSalon = UserSession.salonNombre.isEmpty
-        ? 'Mi salón'
-        : UserSession.salonNombre;
-    final personas = <Resenia>[];
-    for (var i = 0; i < ev.confirmados.length; i++) {
-      final c = ev.confirmados[i];
-      final estrellas = _estrellas[i];
-      final comentario = _resenias[i].text.trim();
-      personas.add(
-        Resenia(
-          nombre: c.nombre,
-          profesion: c.profesion,
-          estrellas: estrellas,
-          comentario: comentario,
-        ),
-      );
-      // Si es una persona real, el evento queda en su historial
-      final real = c.cuenta;
-      if (real != null) {
-        var pago = 0;
-        for (final p in ev.puestos) {
-          if (p.profesion.toLowerCase() == c.profesion.toLowerCase()) {
-            pago = p.pagoHora;
-          }
-        }
-        real.historialTrabajos.insert(
-          0,
-          TrabajoRealizado(
-            salon: nombreSalon,
-            tipo: ev.tipo,
-            fecha: Evento.formatoFecha(ev.fecha),
-            horario: ev.horario,
-            direccion: UserSession.salonDireccion,
-            puesto: c.profesion,
-            pagoHora: pago,
-            horas: ev.horas,
-            estrellas: estrellas,
-            comentario: comentario,
-          ),
-        );
-      }
-      // Si es una persona real, la calificacion queda en su cuenta
-      if (estrellas > 0 && c.cuenta != null) {
-        c.cuenta!.calificaciones.add(
-          Calificacion(
-            estrellas: estrellas,
-            salon: nombreSalon,
-            evento: '${ev.tipo} - ${Evento.formatoFecha(ev.fecha)}',
-            comentario: comentario,
-          ),
-        );
-      }
-    }
+    // Una reseña por cada persona confirmada, en el mismo orden
+    final resenias = <Map<String, dynamic>>[
+      for (var i = 0; i < ev.confirmados.length; i++)
+        {
+          'estrellas': _estrellas[i],
+          'comentario': _resenias[i].text.trim(),
+        },
+    ];
 
-    if (dueno != null) {
-      dueno.historial.insert(
-        0,
-        EventoFinalizado(
-          tipo: ev.tipo,
-          fecha: Evento.formatoFecha(ev.fecha),
-          horario: ev.horario,
-          salon: nombreSalon,
-          costoTotal: ev.costoTotal,
-          personas: personas,
-        ),
+    setState(() => _guardando = true);
+    try {
+      // El servidor termina el evento y guarda las calificaciones
+      await EventoRepository.finalizarEvento(ev, resenias);
+    } on ApiError catch (e) {
+      if (!mounted) return;
+      setState(() => _guardando = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensaje)),
       );
-      Cuenta.retirarEvento(dueno, ev);
+      return;
     }
-    Evento.eliminarActivo();
+    if (!mounted) return;
     Navigator.pop(context, true);
   }
 
@@ -278,7 +232,7 @@ class _CalificarScreenState extends State<CalificarScreen> {
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Center(
                 child: OptimaButton(
-                  text: 'Finalizar y guardar',
+                  text: _guardando ? 'Guardando...' : 'Finalizar y guardar',
                   filled: false,
                   onPressed: _finalizar,
                 ),

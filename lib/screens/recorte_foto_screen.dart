@@ -10,19 +10,26 @@ import '../widgets/optima_button.dart';
 // Pantalla para encuadrar una foto: se mueve y se hace zoom con los dedos
 // (o el mouse) y se guarda solo lo que queda dentro del recuadro.
 // Vuelve con los bytes de la foto recortada, o null si se descarta la foto.
+// Por defecto el recuadro es 4:3 (fotos del salon). Con circular: true es
+// cuadrado y muestra un circulo de guia (foto de perfil).
 // No usa librerias externas, asi que funciona igual en Chrome, Android e iOS.
 class RecorteFotoScreen extends StatefulWidget {
-  const RecorteFotoScreen({super.key, required this.bytes});
+  const RecorteFotoScreen({
+    super.key,
+    required this.bytes,
+    this.circular = false,
+  });
 
   final Uint8List bytes;
+  final bool circular; // true = foto de perfil (cuadrado con circulo guia)
 
   @override
   State<RecorteFotoScreen> createState() => _RecorteFotoScreenState();
 }
 
 class _RecorteFotoScreenState extends State<RecorteFotoScreen> {
-  // Proporcion del recuadro (ancho / alto): 4:3, horizontal
-  static const double _proporcion = 4 / 3;
+  // Proporcion del recuadro (ancho / alto): 4:3 horizontal, o 1:1 si es de perfil
+  double get _proporcion => widget.circular ? 1.0 : 4 / 3;
 
   final _controller = TransformationController();
   final _clave = GlobalKey();
@@ -66,7 +73,8 @@ class _RecorteFotoScreenState extends State<RecorteFotoScreen> {
     try {
       final caja = contexto.findRenderObject() as RenderRepaintBoundary;
       final ancho = caja.size.width;
-      final imagen = await caja.toImage(pixelRatio: 1200 / ancho);
+      final lado = widget.circular ? 600 : 1200; // ancho final en pixeles
+      final imagen = await caja.toImage(pixelRatio: lado / ancho);
       final datos = await imagen.toByteData(format: ui.ImageByteFormat.png);
       if (!mounted) return;
       if (datos == null) {
@@ -103,8 +111,11 @@ class _RecorteFotoScreenState extends State<RecorteFotoScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
-                'Mueve la foto y haz zoom (pellizcando o con la rueda del '
-                'mouse) para dejar lo importante dentro del recuadro.',
+                widget.circular
+                    ? 'Mueve la foto y haz zoom (pellizcando o con la rueda del '
+                        'mouse) para dejar tu cara dentro del círculo.'
+                    : 'Mueve la foto y haz zoom (pellizcando o con la rueda del '
+                        'mouse) para dejar lo importante dentro del recuadro.',
                 textAlign: TextAlign.center,
                 style: AppText.input.copyWith(color: AppColors.navy),
               ),
@@ -172,7 +183,8 @@ class _RecorteFotoScreenState extends State<RecorteFotoScreen> {
       height: alto,
       foregroundDecoration: BoxDecoration(
         border: Border.all(color: AppColors.navy, width: 2),
-        borderRadius: BorderRadius.circular(4),
+        shape: widget.circular ? BoxShape.circle : BoxShape.rectangle,
+        borderRadius: widget.circular ? null : BorderRadius.circular(4),
       ),
       child: RepaintBoundary(
         key: _clave,

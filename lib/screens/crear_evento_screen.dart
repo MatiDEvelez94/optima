@@ -123,6 +123,43 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
   }
 
   DateTime? get _fecha => _parseFecha(_fechaCtrl.text);
+
+  // Fecha anterior a hoy (al editar se permite dejar la fecha que ya tenia el evento)
+  bool get _fechaPasada {
+    final f = _fecha;
+    if (f == null) return false;
+    final ahora = DateTime.now();
+    final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+    return f.isBefore(hoy) && !(_editando && f == widget.editar!.fecha);
+  }
+
+  // 5/11/2026 -> "05/11/2026" (dia/mes/año)
+  String _fmtFecha(DateTime d) => '${d.day.toString().padLeft(2, '0')}/'
+      '${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  // Abre el calendario. Los dias anteriores a hoy aparecen apagados y no se pueden elegir.
+  Future<void> _elegirFecha() async {
+    FocusScope.of(context).unfocus();
+    final ahora = DateTime.now();
+    final hoy = DateTime(ahora.year, ahora.month, ahora.day);
+    final actual = _fecha;
+    final inicial = (actual == null || actual.isBefore(hoy)) ? hoy : actual;
+    final elegida = await showDatePicker(
+      context: context,
+      locale: const Locale('es', 'AR'),
+      initialDate: inicial,
+      firstDate: hoy,
+      lastDate: DateTime(hoy.year + 5, 12, 31),
+      helpText: 'Elige la fecha del evento',
+      cancelText: 'Cancelar',
+      confirmText: 'Aceptar',
+      fieldLabelText: 'Fecha (dd/mm/aaaa)',
+    );
+    if (elegida != null) {
+      setState(() => _fechaCtrl.text = _fmtFecha(elegida));
+    }
+  }
+
   TimeOfDay? get _inicio => _parseHora(_inicioCtrl.text);
   TimeOfDay? get _fin => _parseHora(_finCtrl.text);
 
@@ -201,6 +238,8 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
     List<TextInputFormatter>? formatters,
     TextInputType? keyboardType,
     int maxLines = 1,
+    Widget? suffixIcon,
+    Color? fillColor,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,7 +253,8 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
           maxLines: maxLines,
           onChanged: (_) => setState(() {}),
           style: AppText.input.copyWith(color: Colors.black87),
-          decoration: optimaDecoration(hint),
+          decoration: optimaDecoration(hint)
+              .copyWith(suffixIcon: suffixIcon, fillColor: fillColor),
         ),
       ],
     );
@@ -276,8 +316,25 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                 controller: _fechaCtrl,
                 keyboardType: TextInputType.datetime,
                 formatters: [_FechaFormatter()],
+                // Con una fecha valida el campo se pinta de azul clarito
+                fillColor: fecha != null && !_fechaPasada
+                    ? const Color(0xFFDCE4F0)
+                    : null,
+                suffixIcon: IconButton(
+                  tooltip: 'Elegir en el calendario',
+                  icon: const Icon(Icons.calendar_month, color: AppColors.navy),
+                  onPressed: _elegirFecha,
+                ),
               ),
-              if (fecha != null)
+              if (_fechaPasada)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'La fecha no puede ser anterior a hoy',
+                    style: AppText.input.copyWith(color: Colors.red.shade800),
+                  ),
+                )
+              else if (fecha != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
@@ -340,7 +397,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
 
               _campo(
                 label: 'Vestimenta u observaciones (opcional)',
-                hint: 'ej: camisa blanca y pantalón negro',
+                hint: 'ej: camisa blanca y pantalon negro',
                 controller: _notasCtrl,
                 maxLines: 3,
               ),

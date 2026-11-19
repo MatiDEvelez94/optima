@@ -57,6 +57,7 @@ class Cuenta {
   Uint8List? foto; // cambia cuando la persona cambia su foto de perfil
   final String cvNombre;
   final Uint8List? cvBytes;
+  String? cvUrl; // direccion del PDF en el servidor (para abrirlo aparte)
   final SolicitudSalon? solicitud; // solo si es dueño de salon
 
   // Lo que la persona fue haciendo en la app
