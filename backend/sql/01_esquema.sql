@@ -150,7 +150,7 @@ CREATE TABLE aviso (
   id          INT AUTO_INCREMENT PRIMARY KEY,
   usuario_id  INT NOT NULL,
   titulo      VARCHAR(60)  NOT NULL,
-  detalle     VARCHAR(200) NOT NULL,
+  detalle     VARCHAR(400) NOT NULL,
   creado_en   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_aviso_usuario FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
