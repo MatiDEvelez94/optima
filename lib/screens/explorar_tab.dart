@@ -1,76 +1,66 @@
 import 'package:flutter/material.dart';
+import '../models/evento.dart';
 import '../models/user_session.dart';
+import '../repositories/evento_repository.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/event_card.dart';
 import '../widgets/gradient_background.dart';
 import 'salon_detail_screen.dart';
 
-// Evento de OTRO salon (datos de ejemplo hasta que haya base de datos)
-class _EventoAjeno {
-  const _EventoAjeno({
-    required this.salon,
-    required this.date,
-    required this.size,
-    required this.schedule,
-    required this.needs,
-  });
-
-  final String salon;
-  final String date;
-  final String size;
-  final String schedule;
-  final List<String> needs;
-}
-
 // Pestaña de la lupa (solo dueños de salon): tu salon y los eventos
-// activos de otros salones, para ver como se publican y cuanto pagan
+// activos de otros salones, para ver como se publican y cuanto pagan.
+// Los eventos vienen de la base de datos (el servidor deja afuera los tuyos).
 class ExplorarTab extends StatelessWidget {
   const ExplorarTab({super.key});
 
-  // Ejemplos inventados: los salones y los pagos no son reales
-  static const _eventos = [
-    _EventoAjeno(
-      salon: 'Salón Los Pinos',
-      date: 'Sábado 28/11',
-      size: '250 personas',
-      schedule: '17:30hs - 5:30hs',
-      needs: [
-        'Mozo x8 - \$5.200/h',
-        'Bachero x3 - \$4.300/h',
-        'Cocinero x2 - \$6.000/h',
-        'Animación x1 - \$7.500/h',
-        'Bartender x2 - \$5.800/h',
-      ],
-    ),
-    _EventoAjeno(
-      salon: 'Salón Aurora',
-      date: 'Viernes 4/12',
-      size: '120 personas',
-      schedule: '20:00hs - 2:00hs',
-      needs: [
-        'Mozo x4 - \$4.800/h',
-        'Cocinero x1 - \$5.800/h',
-        'Decorador x1 - \$6.500/h',
-      ],
-    ),
-    _EventoAjeno(
-      salon: 'Quinta Los Álamos',
-      date: 'Sábado 12/12',
-      size: '300 personas',
-      schedule: '19:00hs - 6:00hs',
-      needs: [
-        'Mozo x10 - \$5.500/h',
-        'Bachero x4 - \$4.500/h',
-        'Limpieza x2 - \$4.000/h',
-        'Animación x1 - \$8.000/h',
-        'Bartender x1 - \$5.500/h',
-      ],
-    ),
-  ];
+  List<Widget> _eventos() {
+    final tarjetas = <Widget>[];
+    for (final e in EventoRepository.activos) {
+      final ev = e.evento;
+      tarjetas.add(
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(8),
+          color: const Color(0xFFE6E3DC),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              width: 320,
+              height: 220,
+              child: EventCard(
+                image: 'assets/images/salon.jpg',
+                imageBytes: e.fotos.isNotEmpty ? e.fotos.first : null,
+                // Todas las fotos del salon: en el detalle se ve el carrusel
+                fotos: e.fotos.isEmpty
+                    ? null
+                    : e.fotos
+                        .map<ImageProvider>((b) => MemoryImage(b))
+                        .toList(),
+                salon: e.salon,
+                direccion: e.direccion,
+                date: Evento.formatoFecha(ev.fecha),
+                size: ev.invitados > 0 ? '${ev.invitados} personas' : '-',
+                schedule: ev.horario,
+                // Se muestran todos los puestos con su pago por hora
+                needs: ev.puestos.map((p) => p.etiqueta).toList(),
+                notas: ev.notas,
+                eventoId: e.id,
+                // Sin "puestos": el dueño solo mira, no se postula
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return tarjetas;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final eventos = _eventos();
+
     return Scaffold(
       body: GradientBackground(
         child: SingleChildScrollView(
@@ -104,28 +94,22 @@ class ExplorarTab extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              for (final e in _eventos)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(8),
-                  color: const Color(0xFFE6E3DC),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: SizedBox(
-                      width: 320,
-                      height: 220,
-                      child: EventCard(
-                        image: 'assets/images/salon.jpg',
-                        salon: e.salon,
-                        date: e.date,
-                        size: e.size,
-                        schedule: e.schedule,
-                        needs: e.needs,
-                      ),
+              if (eventos.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Todavía no hay eventos de otros salones',
+                      textAlign: TextAlign.center,
+                      style: AppText.input.copyWith(color: AppColors.navy),
                     ),
                   ),
-                ),
+                )
+              else
+                ...eventos,
               const SizedBox(height: 12),
             ],
           ),

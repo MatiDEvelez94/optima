@@ -1,6 +1,7 @@
 """Trabajadores y salones de ejemplo (todo inventado, solo para la demo)."""
 DOMINIO = '@ejemplo.com'
-FOTOS = ['/assets/images/salon.jpg', '/assets/images/salon2.jpg', '/assets/images/salon3.jpg', '/assets/images/salon4.jpg']
+# La misma foto 4 veces: sirve para probar que el carrusel anda
+FOTOS = ['/assets/images/salon.jpg'] * 4
 
 # (profesion, [(nombre, apellido, promedio, cantidad de calificaciones a crear)])
 TRABAJADORES = [

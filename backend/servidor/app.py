@@ -6,9 +6,11 @@ import pymysql
 from flask import Flask, g, jsonify, redirect, request, send_from_directory, session
 
 import config, modelo as m
+from recuperacion import bp as recuperacion_bp
 
 app = Flask(__name__, static_folder=None)
 app.secret_key = config.SECRET_KEY
+app.register_blueprint(recuperacion_bp)
 app.config.update(MAX_CONTENT_LENGTH=60 * 1024 * 1024, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 
 # ------------------------------------------------------------ conexión por pedido (todo o nada)

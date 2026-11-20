@@ -14,10 +14,10 @@ import 'profile_screen.dart';
 import 'salon_en_revision_tab.dart';
 
 // Marco de la app con la barra de navegación de abajo.
-// Administrador: casita = Solicitudes, lupa = Salones activos, rayitas = Perfil
-// Dueño de salon: casita = Inicio, lupa = Explorar, tres rayitas = Perfil
-// Mozo: casita = Inicio, lupa = Historial, tres rayitas = Perfil
-// Invitado: casita = Inicio, tres rayitas = Perfil
+// Administrador: casita = Solicitudes, lupa = Salones activos, ícono de persona = Perfil
+// Dueño de salon: casita = Inicio, lupa = Explorar, ícono de persona = Perfil
+// Mozo: casita = Inicio, lupa = Historial, ícono de persona = Perfil
+// Invitado: casita = Inicio, ícono de persona = Perfil
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -89,7 +89,8 @@ class _HomeScreenState extends State<HomeScreen> {
           label: esAdmin ? 'Salones' : (esMozo ? 'Historial' : 'Explorar'),
         ),
       BottomNavigationBarItem(
-        icon: Icon(Icons.menu, size: iconSize),
+        icon: Icon(Icons.person_outline, size: iconSize),
+        activeIcon: Icon(Icons.person, size: iconSize),
         label: 'Perfil',
       ),
     ];

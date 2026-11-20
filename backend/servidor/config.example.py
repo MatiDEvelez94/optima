@@ -24,3 +24,10 @@ DEMO_POSTULANTES = True
 ADMIN_CORREO   = 'admin12@gmail.com'
 ADMIN_PASSWORD = '4231'      # solo prototipo
 TEL_PRUEBA     = '1139373911'  # teléfono de los trabajadores de ejemplo (10 dígitos)
+
+# Correo para recuperar contraseñas (Gmail). SMTP_CLAVE NO es tu contraseña de Gmail:
+# es una "contraseña de aplicación" de 16 letras que se crea en tu cuenta de Google.
+SMTP_HOST    = os.environ.get('OPTIMA_SMTP_HOST', 'smtp.gmail.com')
+SMTP_PUERTO  = int(os.environ.get('OPTIMA_SMTP_PUERTO', '587'))
+SMTP_USUARIO = os.environ.get('OPTIMA_SMTP_USUARIO', 'tu_correo@gmail.com')
+SMTP_CLAVE   = os.environ.get('OPTIMA_SMTP_CLAVE', 'clave_de_aplicacion_de_16_letras')
